@@ -46,7 +46,7 @@ namespace MyoStream
         private Int16[][] _IMUdata;
 
         private StreamWriter sWriter;
-        private DWTCalc _dwt;
+        //private DWTCalc _dwt;
 
         // EMG data storage
         private double[][] rawdubs = new double [9][] { new double[64], new double[64], new double[64], new double[64], new double[64], new double[64], new double[64], new double[64], new double[64]};
@@ -70,8 +70,6 @@ namespace MyoStream
         //private double myoRoll;
         //private double myoYaw;
         //private double myoPitch;
-        //Socket sending_socket;
-        //IPAddress send_to_address;
 
         private string _tStamp0;
         private string _tStamp1;
@@ -87,8 +85,8 @@ namespace MyoStream
         {
             IsRunning = false;
 
-            _dwt = new DWTCalc();
             NMathConfiguration.Init();
+            Console.WriteLine("NMathConfiguration initiated successfully");
         }
 
 

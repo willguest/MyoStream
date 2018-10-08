@@ -113,7 +113,6 @@
     </Compile>
     <Compile Include="BatchProcessor.cs" />
     <Compile Include="DataHandler.cs" />
-    <Compile Include="dwt.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>

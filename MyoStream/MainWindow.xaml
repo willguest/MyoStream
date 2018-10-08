@@ -13,7 +13,8 @@
 
         <Grid x:Name="layoutGrid" Height="290" VerticalAlignment="Center" Background="#FF070315" HorizontalAlignment="Center" Width="400" Canvas.Left="27" Canvas.Top="57">
             <Grid.RowDefinitions>
-                <RowDefinition Height="71*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -35,12 +36,14 @@
             <TextBlock x:Name="txtBTAddrRt" HorizontalAlignment="Left" Margin="84,58,0,0" TextWrapping="Wrap" Text="None" VerticalAlignment="Top" Foreground="#FFCFD459" FontSize="11" Width="100" Height="20" Grid.Column="1"/>
             <TextBlock HorizontalAlignment="Center" Margin="0,6,0,0" TextWrapping="Wrap" Text="Left" Height="24" Width="79" VerticalAlignment="Top" Foreground="#FFA5B4DE" FontSize="16" FontWeight="Bold" TextAlignment="Center"/>
             <TextBlock HorizontalAlignment="Center" Margin="0,6,0,0" TextWrapping="Wrap" Text="Right" Height="24" Width="79" VerticalAlignment="Top" Foreground="#FFA5B4DE" FontSize="16" FontWeight="Bold" Grid.Column="1" TextAlignment="Center"/>
-            <ComboBox x:Name="cmbFileList" HorizontalAlignment="Left" Margin="20,220,0,0" VerticalAlignment="Top" Width="160"/>
-            <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap" Foreground="#E5E1FF58" FontSize="14" Width="95" Height="20" VerticalAlignment="Bottom" FontWeight="Bold" Text="Pick Data File:" Margin="20,0,0,73"/>
-            <Button Click="LoadFile_Click" Content="Load File" HorizontalAlignment="Left" Margin="10,220,0,0" VerticalAlignment="Top" Width="73" Grid.Column="1" Background="#FFCFD634"/>
-            <TextBlock x:Name="txtLoadResult" HorizontalAlignment="Left" Margin="90,222,0,0" TextWrapping="Wrap" Text="load status" VerticalAlignment="Top" Width="100" Foreground="#FF96B081" Grid.Column="1"/>
-            <Button Click="CleanFile_Click" Content="Clean Data" HorizontalAlignment="Left" Margin="10,250,0,0" VerticalAlignment="Top" Width="73" Grid.Column="1" Background="#FFCFD634"/>
-            <TextBlock HorizontalAlignment="Left" Margin="90,252,0,0" TextWrapping="Wrap" Text="clean status" VerticalAlignment="Top" Width="100" Foreground="#FF96B081" Grid.Column="1"/>
+            <ComboBox x:Name="cmbFileList" Margin="20,35,0,0" VerticalAlignment="Top" Height="20" Grid.Row="1" HorizontalAlignment="Left" Width="160"/>
+            <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap" Foreground="#E5E1FF58" FontSize="14" Width="155" FontWeight="Bold" Margin="20,10,0,0" Grid.Row="1" Height="20" VerticalAlignment="Top"><Run Text="Select "/><Run Text="Data File:"/></TextBlock>
+            <Button Click="LoadFile_Click" Content="Load File" HorizontalAlignment="Left" Margin="10,86,0,37" Width="73" Background="#FFCFD634" Grid.Row="1"/>
+            <TextBlock x:Name="txtLoadResult" Margin="90,89,10,40" TextWrapping="Wrap" Text="load status" Foreground="#FF96B081" Grid.Row="1"/>
+            <Button Click="CleanFile_Click" Content="Clean Data" HorizontalAlignment="Left" Margin="10,0,0,10" VerticalAlignment="Bottom" Width="73" Background="#FFCFD634" Height="20" Grid.Row="1"/>
+            <TextBlock Margin="90,117,10,0" TextWrapping="Wrap" Text="clean status" VerticalAlignment="Top" Foreground="#FF96B081" Grid.Row="1"/>
+            <ComboBox x:Name="cmbWavelets" Margin="0,15,22,0" VerticalAlignment="Top" Height="20" Grid.Row="1" HorizontalAlignment="Right" Width="85" Grid.Column="1"/>
+            <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap" Foreground="#E5E1FF58" FontSize="14" Width="65" FontWeight="Bold" Margin="18,15,0,0" Grid.Row="1" Height="20" VerticalAlignment="Top" Grid.Column="1" Text="Wavelet:"/>
         </Grid>
         <TextBox x:Name="txtSessionId" HorizontalAlignment="Left" Height="20" TextWrapping="Wrap" Text="Testing" VerticalAlignment="Top" Width="100" Canvas.Left="110" Canvas.Top="18"/>
         <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap" Foreground="#E5E1FF58" FontSize="14" Width="80" Height="20" VerticalAlignment="Bottom" FontWeight="Bold" Canvas.Left="25" Canvas.Top="18" Text="Session ID:"/>
