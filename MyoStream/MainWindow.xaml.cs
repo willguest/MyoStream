@@ -378,7 +378,6 @@ namespace MyoStream
         {
             myoGuids = new Dictionary<string, Guid>();
 
-            // enumerate myo guids
             myoGuids.Add("MYO_DEVICE_NAME", new Guid("D5062A00-A904-DEB9-4748-2C7F4A124842")); // Device Name 
             myoGuids.Add("BATTERY_SERVICE", new Guid("0000180f-0000-1000-8000-00805f9b34fb")); // Battery Service
             myoGuids.Add("BATTERY_LEVLL_C", new Guid("00002a19-0000-1000-8000-00805f9b34fb")); // Battery Level Characteristic
@@ -400,66 +399,6 @@ namespace MyoStream
             myoGuids.Add("CLASSIFR_CHARAC", new Guid("D5060103-A904-DEB9-4748-2C7F4A124842")); // Classifier event data characteristic (indicate)     
         }
 
-        /*
-        private async void Init_Data_Channels()
-        {
-            // Establish connection to EMG data characteristics (4)
-            GattCharacteristicsResult emgServ = await gatt.Services.Single
-                (s => s.Uuid == myoGuids["MYO_EMG_SERVICE"]).GetCharacteristicsAsync(BluetoothCacheMode.Uncached);
-
-            emgStat = new List<GattCommunicationStatus>(4) { 0, 0, 0, 0 };
-            _emgChars = new List<GattCharacteristic>(4)
-            {
-                emgServ.Characteristics.Single(c => c.Uuid == myoGuids["EMG_DATA_CHAR_0"]), ///ch0
-                emgServ.Characteristics.Single(c => c.Uuid == myoGuids["EMG_DATA_CHAR_1"]), ///ch1
-                emgServ.Characteristics.Single(c => c.Uuid == myoGuids["EMG_DATA_CHAR_2"]), ///ch2
-                emgServ.Characteristics.Single(c => c.Uuid == myoGuids["EMG_DATA_CHAR_3"]), ///ch3
-            };
-
-            for (int k = 0; k < 4; k++)
-            {
-                emgStat[k] = await Notify(_emgChars[k], charDesVal_notify);
-            }
-
-            _emgChars[0].ValueChanged += _dh.EMG0_ValueChanged;
-            _emgChars[1].ValueChanged += _dh.EMG1_ValueChanged;
-            _emgChars[2].ValueChanged += _dh.EMG2_ValueChanged;
-            _emgChars[3].ValueChanged += _dh.EMG3_ValueChanged;
-
-
-            GattCharacteristicsResult imuCharac = await gatt.Services.Single
-                (s => s.Uuid == myoGuids["IMU_DATA_SERVIC"]).GetCharacteristicsAsync();
-
-            _IMUcharac = imuCharac.Characteristics.Single(c => c.Uuid == myoGuids["IMU_DATA_CHARAC"]);
-            _IMUcharac.ValueChanged += _dh.IMU_ValueChanged;
-            GattCommunicationStatus imuStatus = await Notify(_IMUcharac, charDesVal_notify);
-
-
-            // Check that all notifications have succeeded
-            if ((int)emgStat[0] + (int)emgStat[1] + (int)emgStat[2] + (int)emgStat[3] == 0)
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    lblDevStatus.Text = "EMG Ready";
-                    
-                    BtnDisconnect.Visibility = System.Windows.Visibility.Visible;
-                    btnStreamEMG.IsEnabled = true;
-                    //btnConnect.IsEnabled = true;
-                });
-            }
-
-            if (imuStatus == GattCommunicationStatus.Success)
-            {
-                lblDevStatus.Text = "EMG and IMU Ready";
-                _dh.Prep_Datastream();
-            }
-            else
-            {
-                lblDevStatus.Text = "IMU Error";
-            }
-        }
-
-        */
 
         public int SetupMyo(string myoName)
         {
@@ -475,12 +414,13 @@ namespace MyoStream
                 myo.imuService = myServices.Services.FirstOrDefault();
                 if (myo.imuService == null) { return 2; }
 
-                var imuDataChar = Task.Run(async () => await GetCharac(myo.imuService, myoGuids["IMU_DATA_CHARAC"])).Result;
+                var imuDataChar = Task.Run(() => GetCharac(myo.imuService, myoGuids["IMU_DATA_CHARAC"])).Result;
                 myo.imuCharac = imuDataChar.Characteristics.FirstOrDefault();
-
+                //Task<GattCommunicationStatus> notifyIMU = 
+                Notify(myo.imuCharac, charDesVal_notify);
+                //notifyIMU.Wait();
 
                 if (myo.imuCharac == null) { return 3; }
-
                 myo.imuCharac.ValueChanged += myo.myDataHandler.IMU_ValueChanged;
 
 
@@ -512,8 +452,8 @@ namespace MyoStream
                 vibrate_armband(myo);
                 myo.IsReady = true;
                 myo.DevConnStat = BluetoothConnectionStatus.Connected;
-                myo.myDataHandler.Prep_Datastream(myo.Name, "");
-
+                myo.myDataHandler.Prep_EMG_Datastream(myo.Name);
+                myo.myDataHandler.Prep_IMU_Datastream(myo.Name);
 
                 if (!bondedMyos.Contains(myo.Name))
                 { bondedMyos.Add(myo.Name); }
@@ -564,23 +504,6 @@ namespace MyoStream
             
 
         }
-
-        /*
-        private async void Stop_Data_Stream()
-        {
-
-            // stop EMG and IMU
-            byte[] stopEMGdata = new byte[] { 0x01, 0x03, 0x00, 0x00, 0x00 }; 
-
-            if (commandCharacteristic != null)
-            { GattCommunicationStatus result = await Write(commandCharacteristic, stopEMGdata); }
-
-            _dh.Stop_Datastream();
-
-            btnStopEMGStream.Visibility = System.Windows.Visibility.Hidden;
-            dispatcherTimer.Stop();
-        }
-        */
 
         public void StopDataStream(bool targetConnectedDevices = false)
         {

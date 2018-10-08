@@ -23,8 +23,6 @@ namespace MyoStream
         private double[] cleanEMG = new double[9];
 
         private StreamWriter sWriter;
-        private DWTCalc _dwt;
-
 
         public BatchProcessor()
         {
