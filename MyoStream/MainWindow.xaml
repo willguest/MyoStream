@@ -7,7 +7,7 @@
     xmlns:DataVisualization="using:WinRTXamlToolkit.Controls.DataVisualization" 
     xmlns:local="clr-namespace:MyoStream"
     xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
-    Width="459" Height="400" Title="Myo Stream Recorder">
+    Width="461" Height="400" Title="Myo Stream Recorder">
 
     <Canvas Background="#FF150050" Margin="0,0,-1,-1">
 
@@ -36,14 +36,16 @@
             <TextBlock x:Name="txtBTAddrRt" HorizontalAlignment="Left" Margin="84,58,0,0" TextWrapping="Wrap" Text="None" VerticalAlignment="Top" Foreground="#FFCFD459" FontSize="11" Width="100" Height="20" Grid.Column="1"/>
             <TextBlock HorizontalAlignment="Center" Margin="0,6,0,0" TextWrapping="Wrap" Text="Left" Height="24" Width="79" VerticalAlignment="Top" Foreground="#FFA5B4DE" FontSize="16" FontWeight="Bold" TextAlignment="Center"/>
             <TextBlock HorizontalAlignment="Center" Margin="0,6,0,0" TextWrapping="Wrap" Text="Right" Height="24" Width="79" VerticalAlignment="Top" Foreground="#FFA5B4DE" FontSize="16" FontWeight="Bold" Grid.Column="1" TextAlignment="Center"/>
-            <ComboBox x:Name="cmbFileList" Margin="20,35,0,0" VerticalAlignment="Top" Height="20" Grid.Row="1" HorizontalAlignment="Left" Width="160"/>
-            <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap" Foreground="#E5E1FF58" FontSize="14" Width="155" FontWeight="Bold" Margin="20,10,0,0" Grid.Row="1" Height="20" VerticalAlignment="Top"><Run Text="Select "/><Run Text="Data File:"/></TextBlock>
-            <Button Click="LoadFile_Click" Content="Load File" HorizontalAlignment="Left" Margin="10,86,0,37" Width="73" Background="#FFCFD634" Grid.Row="1"/>
-            <TextBlock x:Name="txtLoadResult" Margin="90,89,10,40" TextWrapping="Wrap" Text="load status" Foreground="#FF96B081" Grid.Row="1"/>
-            <Button Click="CleanFile_Click" Content="Clean Data" HorizontalAlignment="Left" Margin="10,0,0,10" VerticalAlignment="Bottom" Width="73" Background="#FFCFD634" Height="20" Grid.Row="1"/>
-            <TextBlock Margin="90,117,10,0" TextWrapping="Wrap" Text="clean status" VerticalAlignment="Top" Foreground="#FF96B081" Grid.Row="1"/>
-            <ComboBox x:Name="cmbWavelets" Margin="0,15,22,0" VerticalAlignment="Top" Height="20" Grid.Row="1" HorizontalAlignment="Right" Width="85" Grid.Column="1"/>
-            <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap" Foreground="#E5E1FF58" FontSize="14" Width="65" FontWeight="Bold" Margin="18,15,0,0" Grid.Row="1" Height="20" VerticalAlignment="Top" Grid.Column="1" Text="Wavelet:"/>
+            <ComboBox x:Name="cmbFileList" Margin="20,35,20,90" Grid.Row="1"/>
+            <TextBlock TextWrapping="Wrap" Foreground="#E5E1FF58" FontSize="14" FontWeight="Bold" Margin="20,10,20,0" Grid.Row="1" Height="20" VerticalAlignment="Top"><Run Text="Select "/><Run Text="Data File:"/></TextBlock>
+            <Button Click="LoadFile_Click" Content="Load File" HorizontalAlignment="Left" Margin="20,63,0,60" Width="160" Background="#FFCFD634" Grid.Row="1"/>
+            <TextBlock x:Name="txtLoadResult" Margin="20,100,20,25" TextWrapping="Wrap" Text="load status" Foreground="#FF96B081" Grid.Row="1"/>
+            <Button Click="CleanFile_Click" Content="Clean Data" Margin="0,0,20,60" VerticalAlignment="Bottom" Background="#FFCFD634" Height="20" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Right" Width="90"/>
+            <TextBlock Margin="20,95,20,30" TextWrapping="Wrap" Text="clean status" Foreground="#FF96B081" Grid.Row="1" Grid.Column="1"/>
+            <ComboBox x:Name="cmbWavelets" Margin="0,35,20,90" Grid.Row="1" HorizontalAlignment="Right" Width="91" Grid.Column="1" RenderTransformOrigin="0.494,2.2"/>
+            <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap" Foreground="#E5E1FF58" FontSize="14" Width="65" FontWeight="Bold" Margin="20,35,0,90" Grid.Row="1" Grid.Column="1" Text="Wavelet:"/>
+            <TextBlock TextWrapping="Wrap" Foreground="#E5E1FF58" FontSize="14" FontWeight="Bold" Margin="20,10,20,0" Grid.Row="1" Height="20" VerticalAlignment="Top" Grid.Column="1" Text="DWT Cleaning:"/>
+            <Button Click="ShowCharts_Click" Content="Show Charts" Margin="0,0,20,2" VerticalAlignment="Bottom" Background="#FFCFD634" Height="20" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Right" Width="90"/>
         </Grid>
         <TextBox x:Name="txtSessionId" HorizontalAlignment="Left" Height="20" TextWrapping="Wrap" Text="Testing" VerticalAlignment="Top" Width="100" Canvas.Left="110" Canvas.Top="18"/>
         <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap" Foreground="#E5E1FF58" FontSize="14" Width="80" Height="20" VerticalAlignment="Bottom" FontWeight="Bold" Canvas.Left="25" Canvas.Top="18" Text="Session ID:"/>

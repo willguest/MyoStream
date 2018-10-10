@@ -1,10 +1,13 @@
-﻿using CenterSpace.NMath.Core;
+﻿using CenterSpace.NMath.Charting.Microsoft;
+using CenterSpace.NMath.Core;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms.DataVisualization.Charting;
 
 namespace MyoStream
 {
@@ -13,7 +16,7 @@ namespace MyoStream
         private string currentDirectory = "";
         private string currentFilename = "";
         private int currentDataLength = 0;
-        private int noPoints = 64;
+        private int noPoints = 128;
 
         private double[][] rawData = new double[9][];
         private double[][] midData = new double[9][];
@@ -23,9 +26,32 @@ namespace MyoStream
         private double[] cleanEMG = new double[9];
 
         private StreamWriter sWriter;
+        public List<string> WaveletNames = new List<string>();
+        public List<Wavelet.Wavelets> ListOfWavelets = new List<Wavelet.Wavelets>();
+        public int SelectedWaveletIndex { get; set; }
+        private Wavelet.Wavelets currentWavelet;
 
         public BatchProcessor()
         {
+            
+        }
+
+        public void IdentifyWavelets()
+        {
+            //WaveletNames = Enum.GetValues(typeof(Wavelet.Wavelets)).Cast<string>().ToList();
+            ListOfWavelets = Enum.GetValues(typeof(Wavelet.Wavelets)).Cast<Wavelet.Wavelets>().ToList();
+
+            foreach (Wavelet.Wavelets w in ListOfWavelets)
+            {
+                WaveletNames.Add(w.ToString());
+            }
+        }
+
+        public void SelectWavelet(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            string waveName = (sender as System.Windows.Controls.ComboBox).SelectedItem as string;
+            SelectedWaveletIndex = WaveletNames.IndexOf(waveName);
+            currentWavelet = ListOfWavelets[SelectedWaveletIndex];
         }
 
         public int LoadFile(string directory, string filename)
@@ -81,12 +107,24 @@ namespace MyoStream
         public void CleanData()
         {
             Prep_Datastream();
+            Console.WriteLine("Performing DWT using " + WaveletNames[SelectedWaveletIndex] + " wavelet");
 
-            Task.Run(async () => await MainAsyncThread());
+            try
+            {
+                Task cleanTask = Task.Run(async () => await MainAsyncThread());
+                cleanTask.Wait();
+            }
+            catch
+            {
 
-            Console.WriteLine("cleaning complete");
+                Console.WriteLine("Error doing DWT using " + WaveletNames[SelectedWaveletIndex] + " wavelet");
+            }
+                   
             
         }
+
+
+
 
 
 
@@ -157,32 +195,52 @@ namespace MyoStream
 
             }
             sWriter.Close();
+            sWriter.Dispose();
             sWriter = null;
 
         }
 
 
-        private async Task<double[]> WorkerThread(double[] _input0)
+        private async Task<double[]> WorkerThread(double[] workerData)
         {
-            return await DiscreetWaveletTransform(_input0).ConfigureAwait(false);
+            return await DiscreetWaveletTransform(workerData).ConfigureAwait(false);
+            
+            //return DWT_Test(workerData, currentWavelet);
         }
+
+
+        private double[] DWT_Test(double[] _input, Wavelet.Wavelets _wavelet) // currently does not very much (removing zeros...)
+        {
+            DoubleVector data = new DoubleVector(_input);
+            DoubleWavelet wavelet = new DoubleWavelet(_wavelet);
+            DoubleDWT dwt = new DoubleDWT(wavelet);
+
+            // Decompose signal with DWT
+            double[] approx;
+            double[] details;
+            dwt.DWT(data.DataBlock.Data, out approx, out details);
+
+            dwt.Signal = _input;
+            int maxPossDecomp = dwt.MaximumDecompLevel();
+            Console.WriteLine("max. decomposition level of " + WaveletNames[SelectedWaveletIndex] + " wavelet is " + maxPossDecomp);
+
+            // Rebuild the signal
+            double[] signal = dwt.IDWT(approx, details);
+
+            return signal;
+        }
+
+
 
 
         private async Task<double[]> DiscreetWaveletTransform(double[] _input)
         {
-            var data = new DoubleVector(_input);
+            DoubleVector data = new DoubleVector(_input);
+            DoubleWavelet wavelet = new DoubleWavelet(Wavelet.Wavelets.D2);
+            DoubleDWT dwt = new DoubleDWT(data.DataBlock.Data, wavelet);
 
-            var wavelet = new DoubleWavelet(Wavelet.Wavelets.Harr);
-
-            var dwt = new DoubleDWT(data.DataBlock.Data, wavelet);
-
-            if (_input.Length == noPoints)
-            {
-                // Decompose signal to level 5
-                //Console.WriteLine("decomposing signal");
-                dwt.Decompose(4);
-
-            }
+            // Decompose signal
+            dwt.Decompose(5);
 
             // Find Universal threshold
             double lambdaU = dwt.ComputeThreshold(DoubleDWT.ThresholdMethod.Universal, 1);
@@ -190,9 +248,6 @@ namespace MyoStream
             // Threshold all detail levels with lambdaU
             dwt.ThresholdAllLevels(DoubleDWT.ThresholdPolicy.Soft,
                 new double[] { lambdaU, lambdaU, lambdaU, lambdaU, lambdaU });
-
-            // testing this: change wavelet type to coif5 in order to get "prefect reconstruction"
-            //dwt.Wavelet = coif5wavelet;
 
             // Rebuild signal to level 2
             double[] reconstructedData2 = dwt.Reconstruct(2);
@@ -230,6 +285,94 @@ namespace MyoStream
 
             }
         }
+
+
+        public void createSignal(int signalLength)
+        {
+            for (int z = 1; z < 9; z++)
+            {
+                midData[z] = new double[signalLength];
+                clnData[z] = new double[signalLength];
+
+                Array.Copy(rawData[z], 0, midData[z], 0, signalLength);
+            }
+
+            DoubleVector data = new DoubleVector(midData[1]);
+            DoubleWavelet wavelet = new DoubleWavelet(Wavelet.Wavelets.D2);
+            DoubleDWT dwt = new DoubleDWT(data.DataBlock.Data, wavelet);
+
+            // Decompose signal with DWT to level 5
+            dwt.Decompose(5);
+
+            // Find Universal threshold & threshold all detail levels with lambdaU
+            double lambdaU = dwt.ComputeThreshold(FloatDWT.ThresholdMethod.Universal, 1);
+            dwt.ThresholdAllLevels(FloatDWT.ThresholdPolicy.Soft, new double[] { lambdaU, lambdaU, lambdaU, lambdaU, lambdaU });
+
+            // Rebuild the signal to level 1 - the original (filtered) signal.
+            double[] reconstructedData = dwt.Reconstruct();
+
+            BuildCharts(dwt, data, reconstructedData);
+        }
+
+        public void BuildCharts(DoubleDWT dwt, DoubleVector signal, double[] ReconstructedData)
+        {
+
+            // Plot out approximations at various levels of decomposition.
+            var approxAllLevels = new DoubleVector();
+            for (int n = 5; n > 0; n--)
+            {
+                var approx = new DoubleVector(dwt.WaveletCoefficients(DiscreteWaveletTransform.WaveletCoefficientType.Approximation, n));
+                approxAllLevels.Append(new DoubleVector(approx));
+            }
+
+            var detailsAllLevels = new DoubleVector();
+            for (int n = 5; n > 0; n--)
+            {
+                var approx = new DoubleVector(dwt.WaveletCoefficients(DiscreteWaveletTransform.WaveletCoefficientType.Details, n));
+                detailsAllLevels.Append(new DoubleVector(approx));
+            }
+
+            // Create and display charts.
+            Chart chart = new Chart() { Size = new System.Drawing.Size(1200, 700), };
+            Title title = new Title()
+            {
+                Name = chart.Titles.NextUniqueName(),
+                Text = "Debauchies-2 DWT",
+                Font = new System.Drawing.Font("Trebuchet MS", 12F, FontStyle.Bold),
+            };
+            chart.Titles.Add(title);
+
+            chart.ChartAreas.Add(new ChartArea("0") { Position = new ElementPosition(0, 7, 50, 45) });
+            chart.ChartAreas[0].AxisX.Title = "5-Level Decomposition Details";
+            Series series0 = new Series();
+            series0.Points.DataBindY(detailsAllLevels);
+            series0.ChartArea = "0";
+            chart.Series.Add(series0);
+
+            chart.ChartAreas.Add(new ChartArea("1") { Position = new ElementPosition(50, 7, 50, 45) });
+            chart.ChartAreas[1].AxisX.Title = "DWT Approximation";
+            Series series1 = new Series();
+            series1.Points.DataBindY(approxAllLevels);
+            series1.ChartArea = "1";
+            chart.Series.Add(series1);
+
+            chart.ChartAreas.Add(new ChartArea("2") { Position = new ElementPosition(0, 55, 50, 45) });
+            chart.ChartAreas[2].AxisX.Title = "EMG Signal";
+            Series series2 = new Series();
+            series2.Points.DataBindY(new DoubleVector(signal));
+            series2.ChartArea = "2";
+            chart.Series.Add(series2);
+            
+            chart.ChartAreas.Add(new ChartArea("3") { Position = new ElementPosition(50, 55, 50, 45) });
+            chart.ChartAreas[3].AxisX.Title = "Reconstructed signal";
+            Series series3 = new Series();
+            series3.Points.DataBindY(new DoubleVector(ReconstructedData));
+            series3.ChartArea = "3";
+            chart.Series.Add(series3);
+
+            NMathChart.Show(chart);
+        }
+
 
     }
 }

@@ -29,6 +29,7 @@ namespace MyoStream
         private Plotter _plot = new Plotter();
         public List<string> fileList = new List<string>();
         public BatchProcessor _bp;
+        
 
         // Watchers
         private BluetoothLEAdvertisementWatcher BleWatcher;
@@ -73,6 +74,9 @@ namespace MyoStream
         private void CleanFile_Click(object sender, EventArgs e)
         { CleanEMGData(); }
 
+        private void ShowCharts_Click(object sender, EventArgs e)
+        { ShowCharts(); }
+
 
         private void dispatcherTimer_Tick(object sender, object e)
         { Update_Timer(); }
@@ -97,16 +101,16 @@ namespace MyoStream
 
             bondedMyos.CollectionChanged += bondedMyos_Changed;
 
-            GetFileList();
+            SeteDataBindings();
         }
 
 
-        private void GetFileList()
+        private void SeteDataBindings()
         {
             string[] files;
-            
             files = Directory.GetFiles(directory, "*", SearchOption.AllDirectories).Select(x => Path.GetFileName(x)).ToArray();
             cmbFileList.SetBinding(System.Windows.Controls.ComboBox.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = files });
+
         }
         
         private void LoadDataFile()
@@ -115,6 +119,10 @@ namespace MyoStream
             _bp = new BatchProcessor();
             int noRecords = _bp.LoadFile(directory, filename);
             txtLoadResult.Text = noRecords + " records";
+
+            _bp.IdentifyWavelets();
+            cmbWavelets.SetBinding(System.Windows.Controls.ComboBox.ItemsSourceProperty,new System.Windows.Data.Binding() { Source = _bp.WaveletNames });
+            cmbWavelets.SelectionChanged += _bp.SelectWavelet;
         }
 
         private void CleanEMGData()
@@ -126,6 +134,14 @@ namespace MyoStream
             else
             {
                 Console.WriteLine("No file loaded");
+            }
+        }
+
+        private void ShowCharts()
+        {
+            if (_bp != null)
+            {
+                _bp.createSignal(1024);
             }
         }
 
