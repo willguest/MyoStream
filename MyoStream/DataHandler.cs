@@ -48,7 +48,7 @@ namespace MyoStream
         private sbyte[][] EMGChannel2;
         private sbyte[][] EMGChannel3;
 
-        private double[][] rawdubs = new double [9][] { new double[64], new double[64], new double[64], new double[64], new double[64], new double[64], new double[64], new double[64], new double[64]};
+        private double[][] rawdubs;
         private double[] startEMG = new double[9];
         private double[] cleanEMG = new double[9];
         private int cnt = 0;
@@ -81,6 +81,13 @@ namespace MyoStream
 
             NMathConfiguration.Init();
             Console.WriteLine("NMathConfiguration initiated successfully");
+
+            //
+            rawdubs = new double[9][];
+            for (int dArr = 0; dArr < 9; dArr++)
+            {
+                rawdubs[dArr] = new double[noPoints];
+            }
         }
 
 
@@ -308,16 +315,17 @@ namespace MyoStream
         #region Data Wrangling
 
 
-        private void WrangleData(sbyte[][] rawData) 
+        private void WrangleData(sbyte[][] rawData) // receives a 2x9 array of EMG data
         {
             int u = rawdubs[0].Length;
-            if (cnt >= 64) {
+            if (cnt >= noPoints) {
                 Console.WriteLine("data arrays overloaded");
                 return;
             }
 
             long now = DateTime.UtcNow.Ticks;
-            rawdubs[0][0] = now;
+            rawdubs[0][cnt] = now;
+            rawdubs[0][cnt + 1] = now;
 
             for (int x = 1; x < 9; x++)
             {
@@ -342,11 +350,11 @@ namespace MyoStream
             Task<double[]>[] _tasks = new Task<double[]>[8];
 
             double[][] _reconstructedData = new double[9][];
-            _reconstructedData[0] = new double[64];
+            _reconstructedData[0] = new double[noPoints];
 
             for (int y = 1; y < 9; y++)
             {
-                _reconstructedData[y] = new double[64];
+                _reconstructedData[y] = new double[noPoints];
                 _tasks[y-1] = WorkerThread(data[y]);
             }
 
@@ -373,19 +381,11 @@ namespace MyoStream
         private async Task<double[]> DiscreetWaveletTransform(double[] _input)
         {
             var data = new DoubleVector(_input);
-
             var wavelet = new DoubleWavelet(Wavelet.Wavelets.D2);
-            //var coif5wavelet = new DoubleWavelet(Wavelet.Wavelets.C5);
-
             var dwt = new DoubleDWT(data.DataBlock.Data, wavelet);
 
-            if (_input.Length == noPoints)
-            {
-                // Decompose signal to level 5
-                //Console.WriteLine("decomposing signal");
-                dwt.Decompose(4);
-                
-            }
+            // Decompose the raw signal
+            dwt.Decompose(4);
 
             // Find Universal threshold
             double lambdaU = dwt.ComputeThreshold(DoubleDWT.ThresholdMethod.Universal, 1);
@@ -397,15 +397,8 @@ namespace MyoStream
             // Rebuild signal to level 2
             double[] reconstructedData2 = dwt.Reconstruct(2);
 
-            // testing this: change wavelet type to coif5 in order to get "prefect reconstruction"
-            //dwt.Wavelet = coif5wavelet;
-
             // Rebuild the signal to level 1 - the original (filtered) signal.
             double[] rebuiltSignal = dwt.Reconstruct();
-
-            // add timestamp to end of array
-            //rebuiltSignal[rebuiltSignal.Length] = DateTime.UtcNow.Ticks;
-
 
             //Console.WriteLine("finished rebuilding signal");
             return rebuiltSignal;
@@ -438,7 +431,7 @@ namespace MyoStream
 
         private async Task StoreIMUData(string imuString)
         {
-            imuWriter.WriteLine(imuString);
+            imuWriter.WriteLine(imuString);;
         }
 
 

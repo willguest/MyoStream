@@ -108,7 +108,7 @@ namespace MyoStream
         private void SeteDataBindings()
         {
             string[] files;
-            files = Directory.GetFiles(directory, "*", SearchOption.AllDirectories).Select(x => Path.GetFileName(x)).ToArray();
+            files = Directory.GetFiles(directory, "*", SearchOption.AllDirectories).Select(x => Path.GetFileNameWithoutExtension(x)).ToArray();
             cmbFileList.SetBinding(System.Windows.Controls.ComboBox.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = files });
 
         }
@@ -116,9 +116,11 @@ namespace MyoStream
         private void LoadDataFile()
         {
             string filename = cmbFileList.Text;
+
             _bp = new BatchProcessor();
             int noRecords = _bp.LoadFile(directory, filename);
             txtLoadResult.Text = noRecords + " records";
+            _bp.PrepareDataArrays(noRecords);
 
             _bp.IdentifyWavelets();
             cmbWavelets.SetBinding(System.Windows.Controls.ComboBox.ItemsSourceProperty,new System.Windows.Data.Binding() { Source = _bp.WaveletNames });
@@ -131,17 +133,13 @@ namespace MyoStream
             {
                 _bp.CleanData();
             }
-            else
-            {
-                Console.WriteLine("No file loaded");
-            }
         }
 
         private void ShowCharts()
         {
             if (_bp != null)
             {
-                _bp.createSignal(1024);
+                _bp.PlotData();
             }
         }
 
