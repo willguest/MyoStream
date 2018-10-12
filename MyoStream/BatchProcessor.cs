@@ -1,12 +1,11 @@
-﻿
-using CenterSpace.NMath.Core;
-using System;
-using System.Collections.Generic;
-
+﻿using System;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+
+using CenterSpace.NMath.Core;
+
 
 namespace MyoStream
 {
@@ -30,8 +29,7 @@ namespace MyoStream
         private Wavelet.Wavelets currentWavelet;
 
         public BatchProcessor()
-        {
-            
+        {      
         }
 
         public void IdentifyWavelets()
@@ -108,24 +106,21 @@ namespace MyoStream
         }
 
 
-        public void CleanData()
+        public void StoreData()
         {
             Prep_Datastream();
-            Console.WriteLine("Performing DWT using " + currentWavelet.ToString() + " wavelet");
-
-            Task cleanIt = Task.Run(async () => await MainAsyncThread());
-            cleanIt.Wait();
             Task storeIt = Task.Run(async () => await StoreData(currentDataLength, midData, clnData).ConfigureAwait(true));
-
+            sWriter.Close();
+            sWriter.Dispose();
+            sWriter = null;
         }
 
         public void PlotData()
         {
             var myPlotter = new Plotter();
-            Task showIt = Task.Run(() => myPlotter.InitialisePlot(midData[3], currentWavelet));
+            Task showIt = Task.Run(() => myPlotter.InitialisePlot(midData[4], currentWavelet, 4));
 
         }
-
 
 
 
@@ -177,7 +172,6 @@ namespace MyoStream
                 { n += 256; }
             }
 
-
             Console.WriteLine("max n value used: " + n);
             int noPoints = n;
 
@@ -191,100 +185,6 @@ namespace MyoStream
 
                 Array.Copy(rawData[z], 0, midData[z], 0, noPoints);
             }
-        }
-
-
-
-        private async Task MainAsyncThread()
-        {
-            Task<double[]>[] _tasks = new Task<double[]>[8];
-
-            for (int z = 1; z < 9; z++)
-            {
-                _tasks[z - 1] = WorkerThread(midData[z]);
-            }
-
-            await Task.WhenAll(_tasks);
-
-            for (int w = 1; w < 9; w++)
-            {
-                clnData[w] = _tasks[w - 1].Result;
-            }
-
-            //await StoreData(noPoints, midData, clnData).ConfigureAwait(true);
-
-            //sWriter.Close();
-            //sWriter.Dispose();
-            //sWriter = null;
-
-        }
-
-
-
-
-
-
-
-
-        private async Task<double[]> WorkerThread(double[] workerData)
-        {
-            return DiscreetWaveletTransform(workerData, currentWavelet);
-            
-            //return DWT_Test(workerData, currentWavelet);
-        }
-
-
-        private double[] DWT_Test(double[] _input, Wavelet.Wavelets _wavelet) // currently does not very much (removing zeros...)
-        {
-            DoubleVector data = new DoubleVector(_input);
-            DoubleWavelet wavelet = new DoubleWavelet(_wavelet);
-            DoubleDWT dwt = new DoubleDWT(wavelet);
-
-            // Decompose signal with DWT
-            double[] approx;
-            double[] details;
-            dwt.DWT(data.DataBlock.Data, out approx, out details);
-
-            dwt.Signal = _input;
-            int maxPossDecomp = dwt.MaximumDecompLevel();
-            Console.WriteLine("max. decomposition level of " + WaveletNames[SelectedWaveletIndex] + " wavelet is " + maxPossDecomp);
-
-            // Rebuild the signal
-            double[] signal = dwt.IDWT(approx, details);
-
-            return signal;
-        }
-
-
-
-
-        private double[] DiscreetWaveletTransform(double[] _input, Wavelet.Wavelets motherWavelet)
-        {
-            DoubleVector data = new DoubleVector(_input);
-            DoubleWavelet wavelet = new DoubleWavelet(motherWavelet);
-            DoubleDWT dwt = new DoubleDWT(data.DataBlock.Data, wavelet);
-
-            int maxPossDecomp = dwt.MaximumDecompLevel();
-            Console.WriteLine("Decomposition possible to level " + maxPossDecomp + " using this wavelet (" + motherWavelet.ToString() + ")...");
-
-            // Decompose signal
-            dwt.Decompose(5);
-
-            // Find Universal threshold
-            double lambdaU = dwt.ComputeThreshold(DoubleDWT.ThresholdMethod.Universal, 1);
-
-            // Threshold all detail levels with lambdaU
-            dwt.ThresholdAllLevels(DoubleDWT.ThresholdPolicy.Soft,
-                new double[] { lambdaU, lambdaU, lambdaU, lambdaU, lambdaU });
-
-            // Rebuild signal to level 2
-            double[] reconstructedData2 = dwt.Reconstruct(2);
-
-            // Rebuild the signal to level 1 - the original (filtered) signal.
-            double[] rebuiltSignal = dwt.Reconstruct();
-
-            //Console.WriteLine("finished rebuilding signal");
-            return rebuiltSignal;
         }
 
 
@@ -309,18 +209,8 @@ namespace MyoStream
                     sWriter.WriteLine(atfrst + "," + atlast);
                 }
                 sWriter.Flush();
-
-
             }
         }
-
-
-
-
-
-
-
-
 
     }
 }
