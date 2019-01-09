@@ -283,6 +283,8 @@ namespace MyoStream
 
             Console.WriteLine(totalEMGRecords + " EMG records received on all channels from " + thisDeviceName);
             Console.WriteLine(totalIMURecords + " IMU records received from " + thisDeviceName);
+
+            
         }
 
         #endregion Prep and Stop Datastream

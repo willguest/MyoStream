@@ -34,7 +34,7 @@ namespace MyoStream
         private Plotter _plot = new Plotter();
         public List<string> fileList = new List<string>();
         public BatchProcessor _bp;
-        
+
 
         // Watchers
         private BluetoothLEAdvertisementWatcher BleWatcher;
@@ -87,14 +87,14 @@ namespace MyoStream
         private void dispatcherTimer_Tick(object sender, object e)
         { Update_Timer(); }
 
-        
+
 
 
         public MainWindow()
         {
             InitializeComponent();
             DataContext = this;
-            
+
             deviceList.Clear();
 
             dispatcherTimer.Tick += dispatcherTimer_Tick;
@@ -133,7 +133,7 @@ namespace MyoStream
         public void RefreshUI()
         {
             RefreshDeviceStatus();
-            SetDataBindings();
+            //SetDataBindings();
         }
 
         private void SetDataBindings()
@@ -143,10 +143,12 @@ namespace MyoStream
             cmbFileList.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = files });
 
         }
+
         
         private void LoadDataFile()
         {
             string filename = cmbFileList.Text;
+            
             _bp = new BatchProcessor();
 
             // Load file (getting data length)
@@ -162,16 +164,17 @@ namespace MyoStream
             {
                 SessionId = "unknown";
             }
-
+            
             if (filename.Contains("EMG"))
             {
                 // Update wavelet list
-                
+                cmbWavelets.SelectionChanged -= _bp.SelectWavelet;
+                cmbWavelets.SelectedIndex = -1;
+                _bp.IdentifyWavelets();
                 cmbWavelets.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = _bp.WaveletNames });
                 cmbWavelets.SelectionChanged += _bp.SelectWavelet;
-
                 _bp.PrepareDataArrays(noRecords);
-                _bp.IdentifyWavelets();
+
             }
             else if (filename.Contains("IMU"))
             {
@@ -582,6 +585,10 @@ namespace MyoStream
                 {
                     myo.myDataHandler.IsRunning = false;
                     myo.myDataHandler.Stop_Datastream();
+
+                    myo.myDataHandler.Prep_EMG_Datastream(myo.Name, SessionId);
+                    myo.myDataHandler.Prep_IMU_Datastream(myo.Name, SessionId);
+                    captureDuration = 0;
                 }
             }
 
@@ -589,6 +596,8 @@ namespace MyoStream
             btnStartStream.Visibility = System.Windows.Visibility.Visible;
 
             RefreshUI();
+            
+
         }
 
 

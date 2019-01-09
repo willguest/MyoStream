@@ -50,7 +50,10 @@ namespace MyoStream
         public void SelectWavelet(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             string waveName = (sender as System.Windows.Controls.ComboBox).SelectedItem as string;
-            currentWavelet = CommonMotherWavelets.GetWaveletFromName(waveName);
+            if (waveName != null)
+            {
+                currentWavelet = CommonMotherWavelets.GetWaveletFromName(waveName);
+            }
         }
 
 
@@ -165,7 +168,7 @@ namespace MyoStream
 
 
             // perform DWT
-            var myPlotter = new Plotter();
+            Plotter myPlotter = new Plotter();
 
             for (int x = 0; x < noChannels; x++)
             {
