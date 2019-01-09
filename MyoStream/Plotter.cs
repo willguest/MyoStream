@@ -1,22 +1,108 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms.DataVisualization.Charting;
 using CenterSpace.NMath.Charting.Microsoft;
-using CenterSpace.NMath.Core;
+using WaveletStudio;
+using WaveletStudio.Wavelet;
 
 namespace MyoStream
 {
     public class Plotter
     {
 
-        public void InitialisePlot(double[] inputData, Wavelet.Wavelets inputWavelet, int channelNo)
-        {
-            DoubleVector data = new DoubleVector(inputData);
-            DoubleWavelet wavelet = new DoubleWavelet(inputWavelet);
-            DoubleDWT dwt = new DoubleDWT(data.DataBlock.Data, wavelet);
+            #region IMU Data Plotting
 
+        public void BuildIMUChart(string session, string dir, double[][] IMUData)
+        {
+            // Create and display charts.
+            Chart chart = new Chart() { Size = new Size(1880, 1000), };
+            Title title = new Title()
+            {
+                Name = chart.Titles.NextUniqueName(),
+                Text = session + "'s (R) IMU Data",
+                Font = new Font("Trebuchet MS", 12F, FontStyle.Bold),
+                Position = new ElementPosition(15, 1.5f, 20, 5),
+            };
+            chart.Titles.Add(title);
+
+            chart.ChartAreas.Add(new ChartArea("0") { Position = new ElementPosition(5, 5, 90, 30) });
+            chart.ChartAreas[0].AxisX.Title = "Orientation";
+
+            for (int x = 0; x < 4; x++)
+            {
+                Series series = new Series();
+                series.Name = "o" + x;
+                series.Points.DataBindY(IMUData[x]);
+                series.ChartArea = "0";
+                chart.Series.Add(series);
+            }
+
+            chart.ChartAreas.Add(new ChartArea("1") { Position = new ElementPosition(5, 34, 90, 30) });
+            chart.ChartAreas[1].AxisX.Title = "Acceleration";
+
+            for (int x = 4; x < 7; x++)
+            {
+                Series series = new Series();
+                series.Name = "a" + x;
+                series.Points.DataBindY(IMUData[x]);
+                series.ChartArea = "1";
+                chart.Series.Add(series);
+            }
+
+            chart.ChartAreas.Add(new ChartArea("2") { Position = new ElementPosition(5, 64, 90, 30) });
+            chart.ChartAreas[2].AxisX.Title = "Gyroscope";
+
+            for (int x = 7; x < 10; x++)
+            {
+                Series series = new Series();
+                series.Name = "g" + x;
+                series.Points.DataBindY(IMUData[x]);
+                series.ChartArea = "2";
+                chart.Series.Add(series);
+            }
+
+            // save and display
+            string savePath = dir + "/" + session + "- IMU Data.png";
+            chart.SaveImage(savePath, ChartImageFormat.Png);
+            NMathChart.Show(chart);
+        }
+
+
+
+        #endregion IMU Data Plotting
+
+
+        #region DWT Plotting
+
+        List<DecompositionLevel> dwt = new List<DecompositionLevel>();
+
+        public void InitialisePlot(double[] inputData, MotherWavelet inputWavelet, int channelNo)
+        {
+            //var data = new DoubleVector(inputData);
+            //var wavelet = new DoubleWavelet(inputWavelet);
+            //DoubleDWT dwt = new DoubleDWT(data.DataBlock.Data, wavelet);
+
+            Signal signal = new Signal(inputData);
+            MotherWavelet wavelet = inputWavelet;
+            int maxL = 5; // levels to decompose
+
+            //dwt = DWT.ExecuteDWT(data, wavelet, maxL);
+
+            double[][] reconstrData = new double [maxL][];
+
+            for (int r = 0; r < maxL; r++)
+            {
+                dwt = DWT.ExecuteDWT(signal, wavelet, r, SignalExtension.ExtensionMode.SymmetricWholePoint, WaveletStudio.Functions.ConvolutionModeEnum.Normal);
+
+                reconstrData[r] = new double[signal.SamplesCount];
+                reconstrData[r] = DWT.ExecuteIDWT(dwt, wavelet, r, WaveletStudio.Functions.ConvolutionModeEnum.Normal);
+            }
+
+
+            /*
             int maxPossDecomp = dwt.MaximumDecompLevel();
             Console.WriteLine("Decomposition possible to level " + maxPossDecomp + " using this wavelet (" + inputWavelet.ToString() + ")");
 
@@ -41,19 +127,41 @@ namespace MyoStream
                 // Rebuild the signal to level 1 - the original (filtered) signal.
                 allReconData[r - 1] = dwt.Reconstruct();
             }
+            */
+
 
             // Display chart
-            BuildChart(channelNo, inputWavelet.ToString(), maxPossDecomp, dwt, data, allReconData);
+            BuildDWTChart(channelNo, inputWavelet.Name, maxL, inputData, reconstrData);
+
+
         }
 
-
-
-        public Task BuildChart(int channelNo, string waveletUsed, int maxDecompLevel, DoubleDWT dwt, DoubleVector signal, double[][] ReconstructedData)
+        public Task BuildDWTChart(int channelNo, string waveletUsed, int maxDecompLevel, double[] signal, double[][] ReconstructedData)
         {
+            double[] approxAllLevels = new double[0];
+            double[] detailsAllLevels = new double[0];
 
+            foreach (DecompositionLevel d in dwt)
+            {
+                int oldSizeA = approxAllLevels.Length;
+                int newSizeA = oldSizeA + d.Approximation.Length;
+                Array.Resize(ref approxAllLevels, newSizeA);
+                Array.Copy(d.Approximation, 0, approxAllLevels, oldSizeA, d.Approximation.Length);
+
+                int oldSizeD = detailsAllLevels.Length;
+                int newSizeD = oldSizeD + d.Details.Length;
+                Array.Resize(ref detailsAllLevels, newSizeD);
+                Array.Copy(d.Details, 0, detailsAllLevels, oldSizeA, d.Details.Length);
+
+                //approxAllLevels.Add(d.Approximation.ToArray());
+                //detailsAllLevels.Add(d.Details);
+                
+            }
+
+            /*
             // Plot out approximations at various levels of decomposition.
             var approxAllLevels = new DoubleVector();
-            for (int n = 5; n > 0; n--)
+            for (int n = maxDecompLevel; n > 0; n--)
             {
                 var approx = new DoubleVector(dwt.WaveletCoefficients(DiscreteWaveletTransform.WaveletCoefficientType.Approximation, n));
                 approxAllLevels.Append(new DoubleVector(approx));
@@ -66,12 +174,15 @@ namespace MyoStream
                 detailsAllLevels.Append(new DoubleVector(detail));
             }
 
+            */
+
+
             // Create and display charts.
             Chart chart = new Chart() { Size = new System.Drawing.Size(1880, 1000), };
             Title title = new Title()
             {
                 Name = chart.Titles.NextUniqueName(),
-                Text = "DWT Using " + waveletUsed + " Wavelet, over " + maxDecompLevel + " levels",
+                Text = "DWT Using " + waveletUsed + " Wavelet",
                 Font = new Font("Trebuchet MS", 12F, FontStyle.Bold),
                 Position = new ElementPosition(15, 1.5f, 20, 5),
             };
@@ -94,29 +205,33 @@ namespace MyoStream
             chart.ChartAreas.Add(new ChartArea("2") { Position = new ElementPosition(0, 7, 50, 45) });
             chart.ChartAreas[2].AxisX.Title = "Original EMG Signal";
             Series series2 = new Series();
-            series2.Points.DataBindY(new DoubleVector(signal));
+            series2.Points.DataBindY(signal);
             series2.ChartArea = "2";
             chart.Series.Add(series2);
 
             float offset = 1.0f;
-            float rP = (100 / maxDecompLevel);
+            float rP = (100 / (maxDecompLevel - 1));
 
-            for (int l = 0; l < maxDecompLevel; l++)
+            for (int l = 1; l < maxDecompLevel; l++)
             {
-                chart.ChartAreas.Add(new ChartArea("r" + l) { Position = new ElementPosition(50, (l * rP) + offset, 50, rP - offset)});
-                chart.ChartAreas[3+l].AxisX.Title = "Reconstructed signal, from level " + (l + 1);
+                chart.ChartAreas.Add(new ChartArea("r" + l) { Position = new ElementPosition(50, ((l - 1) * rP) + offset, 50, rP - offset) });
+                chart.ChartAreas[2 + l].AxisX.Title = "Reconstructed signal, from level " + l;
                 Series series = new Series();
-                series.Points.DataBindY(new DoubleVector(ReconstructedData[l]));   // needs new data...
+                series.Points.DataBindY(ReconstructedData[l]);   // needs new data...
                 series.ChartArea = "r" + l;
                 chart.Series.Add(series);
             }
 
             // Save and/or display the chart
-            //chart.SaveImage("C:/Users/16102434/Source/Repos/MyoStream/Images/DWT_" + waveletUsed + "_to_Level_" + maxDecompLevel + "_Channel " + channelNo + ".png", ChartImageFormat.Png);
+            //chart.SaveImage("C:/Users/16102434/Source/Repos/MyoStream/Images2/DWT_" + waveletUsed + "_to_Level_" + maxDecompLevel + "_Channel " + channelNo + ".png", ChartImageFormat.Png);
             NMathChart.Show(chart);
             
             return null;
         }
+
+
+        #endregion DWT Plotting
+
 
     }
 }

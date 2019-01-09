@@ -1,0 +1,146 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{003D0672-355F-416B-9E88-DC95F0762329}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>WaveletStudio</RootNamespace>
+    <AssemblyName>WaveletStudio</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <DocumentationFile>bin\Debug\WaveletStudio.XML</DocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <DocumentationFile>bin\Release\WaveletStudio.xml</DocumentationFile>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Design" />
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Blocks\BlockInOutSignalBridgeBase.cs" />
+    <Compile Include="Blocks\BlockInputSignalBridge.cs" />
+    <Compile Include="Blocks\BlockNodeBase.cs" />
+    <Compile Include="Blocks\BlockOutputNode.cs" />
+    <Compile Include="Blocks\BlockOutputSignalBridge.cs" />
+    <Compile Include="Blocks\ConvolutionBlock.cs" />
+    <Compile Include="Blocks\AbsoluteValueBlock.cs" />
+    <Compile Include="Blocks\IBlockInOutSignal.cs" />
+    <Compile Include="Blocks\RelationalOperatorBlock.cs" />
+    <Compile Include="Blocks\LogicOperationBlock.cs" />
+    <Compile Include="Blocks\ShiftBlock.cs" />
+    <Compile Include="Blocks\SwitchBlock.cs" />
+    <Compile Include="Blocks\CustomAttributes\TemplateNamesTypeConverter.cs" />
+    <Compile Include="Blocks\CustomAttributes\WaveletNamesTypeConverter.cs" />
+    <Compile Include="Blocks\CustomAttributes\GlobalizedObject.cs" />
+    <Compile Include="Blocks\CustomAttributes\GlobalizedPropertyDescriptor.cs" />
+    <Compile Include="Blocks\CustomAttributes\ListTypeConverter.cs" />
+    <Compile Include="Blocks\DemuxBlock.cs" />
+    <Compile Include="Blocks\CustomAttributes\TextParameter.cs" />
+    <Compile Include="Blocks\MuxBlock.cs" />
+    <Compile Include="Blocks\RepeatBlock.cs" />
+    <Compile Include="Blocks\InterpolationBlock.cs" />
+    <Compile Include="Blocks\NormalDistributionBlock.cs" />
+    <Compile Include="Blocks\InvertBlock.cs" />
+    <Compile Include="Blocks\ScaleBlock.cs" />
+    <Compile Include="Blocks\UniqueBlock.cs" />
+    <Compile Include="Blocks\IDWTBlock.cs" />
+    <Compile Include="Blocks\UpSampleBlock.cs" />
+    <Compile Include="Blocks\ImportFromTextBlock.cs" />
+    <Compile Include="Blocks\ExportToCSVBlock.cs" />
+    <Compile Include="Blocks\SignalExtensionBlock.cs" />
+    <Compile Include="Blocks\DWTBlock.cs" />
+    <Compile Include="Blocks\ImportFromCSVBlock.cs" />
+    <Compile Include="Blocks\SampleBasedOperationBlock.cs" />
+    <Compile Include="Blocks\RampFunctionBlock.cs" />
+    <Compile Include="Blocks\IFFTBlock.cs" />
+    <Compile Include="Blocks\FFTBlock.cs" />
+    <Compile Include="Blocks\DownSampleBlock.cs" />
+    <Compile Include="Blocks\CustomAttributes\Parameter.cs" />
+    <Compile Include="Blocks\CustomAttributes\SingleInputOutputBlock.cs" />
+    <Compile Include="Blocks\GenerateSignalBlock.cs" />
+    <Compile Include="Blocks\BlockBase.cs" />
+    <Compile Include="Blocks\BlockList.cs" />
+    <Compile Include="Blocks\BlockInputNode.cs" />
+    <Compile Include="Blocks\ScalarOperationBlock.cs" />
+    <Compile Include="Blocks\WaveletBlock.cs" />
+    <Compile Include="FFT\ManagedFft.cs" />
+    <Compile Include="Functions\WaveMath_RelationalOperations.cs" />
+    <Compile Include="Functions\WaveMath_LogicOperations.cs" />
+    <Compile Include="Functions\WaveMath_Convolution.cs" />
+    <Compile Include="Functions\WaveMath_Interpolation.cs" />
+    <Compile Include="Functions\WaveMath_Operations.cs" />
+    <Compile Include="Functions\WaveMath_Routing.cs" />
+    <Compile Include="Functions\WaveMath_Statistics.cs" />
+    <Compile Include="MemoryPool.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\Resources.pt-BR.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.pt-BR.resx</DependentUpon>
+    </Compile>
+    <Compile Include="SignalGeneration\Binary.cs" />
+    <Compile Include="SignalGeneration\Sine.cs" />
+    <Compile Include="Utils.cs" />
+    <Compile Include="Wavelet\CommonMotherWavelets.cs" />
+    <Compile Include="Wavelet\DecompositionLevel.cs" />
+    <Compile Include="SignalGeneration\CommonSignalBase.cs" />
+    <Compile Include="SignalGeneration\Sawtooth.cs" />
+    <Compile Include="SignalGeneration\Cosine.cs" />
+    <Compile Include="SignalGeneration\Square.cs" />
+    <Compile Include="SignalGeneration\Triangle.cs" />
+    <Compile Include="Functions\WaveMath_General.cs" />
+    <Compile Include="Signal.cs" />
+    <Compile Include="Wavelet\MotherWavelet.cs" />
+    <Compile Include="Wavelet\DWT.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SignalExtension.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.pt-BR.resx">
+      <SubType>Designer</SubType>
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.pt-BR.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

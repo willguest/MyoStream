@@ -8,7 +8,7 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>MyoStream</RootNamespace>
     <AssemblyName>MyoStream</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <WarningLevel>4</WarningLevel>
@@ -59,6 +59,24 @@
     <ApplicationIcon>myo-black-render.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Accord, Version=3.8.2.0, Culture=neutral, PublicKeyToken=fa1a88e29555ccf7, processorArchitecture=MSIL">
+      <HintPath>..\packages\Accord.3.8.2-alpha\lib\net462\Accord.dll</HintPath>
+    </Reference>
+    <Reference Include="Accord.Math, Version=3.8.2.0, Culture=neutral, PublicKeyToken=fa1a88e29555ccf7, processorArchitecture=MSIL">
+      <HintPath>..\packages\Accord.Math.3.8.2-alpha\lib\net462\Accord.Math.dll</HintPath>
+    </Reference>
+    <Reference Include="Accord.Math.Core, Version=3.8.2.0, Culture=neutral, PublicKeyToken=fa1a88e29555ccf7, processorArchitecture=MSIL">
+      <HintPath>..\packages\Accord.Math.3.8.2-alpha\lib\net462\Accord.Math.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Accord.Statistics, Version=3.8.0.0, Culture=neutral, PublicKeyToken=fa1a88e29555ccf7, processorArchitecture=MSIL">
+      <HintPath>..\packages\Accord.Statistics.3.8.0\lib\net462\Accord.Statistics.dll</HintPath>
+    </Reference>
+    <Reference Include="Cntk.Core.Managed-2.6, Version=2.6.0.0, Culture=neutral, PublicKeyToken=21fff2ec8197defe, processorArchitecture=AMD64">
+      <HintPath>..\packages\CNTK.CPUOnly.2.6.0\lib\netstandard2.0\Cntk.Core.Managed-2.6.dll</HintPath>
+    </Reference>
+    <Reference Include="ICSharpCode.SharpZipLib, Version=0.86.0.518, Culture=neutral, PublicKeyToken=1b03e6acf1164f73, processorArchitecture=MSIL">
+      <HintPath>..\packages\SharpZipLib.0.86.0\lib\20\ICSharpCode.SharpZipLib.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.Solver.Foundation, Version=3.0.2.10889, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Solver.Foundation.3.1.0\lib\Microsoft.Solver.Foundation.dll</HintPath>
     </Reference>
@@ -74,9 +92,11 @@
     <Reference Include="System.Linq">
       <HintPath>..\..\..\..\..\..\Windows\Microsoft.NET\Framework\v4.0.30319\System.Linq.dll</HintPath>
     </Reference>
+    <Reference Include="System.Numerics" />
     <Reference Include="System.Runtime">
       <HintPath>..\..\..\..\..\..\Windows\Microsoft.NET\Framework\v4.0.30319\System.Runtime.dll</HintPath>
     </Reference>
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Runtime.WindowsRuntime, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETCore\v4.5\System.Runtime.WindowsRuntime.dll</HintPath>
@@ -94,8 +114,8 @@
     <Reference Include="System.Xaml">
       <RequiredTargetFramework>4.0</RequiredTargetFramework>
     </Reference>
-    <Reference Include="TensorFlowSharp, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\TensorFlowSharp.1.11.0\lib\netstandard2.0\TensorFlowSharp.dll</HintPath>
+    <Reference Include="TensorFlowSharp, Version=1.0.0.0, Culture=neutral, processorArchitecture=AMD64">
+      <HintPath>..\packages\TensorFlowSharp.1.4.0\lib\net461\TensorFlowSharp.dll</HintPath>
     </Reference>
     <Reference Include="Windows">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Windows Kits\10\UnionMetadata\10.0.15063.0\Windows.winmd</HintPath>
@@ -119,6 +139,80 @@
     </Compile>
     <Compile Include="BatchProcessor.cs" />
     <Compile Include="DataHandler.cs" />
+    <Compile Include="dataUtils.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\AbsoluteValueBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\BlockBase.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\BlockInOutSignalBridgeBase.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\BlockInputNode.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\BlockInputSignalBridge.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\BlockList.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\BlockNodeBase.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\BlockOutputNode.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\BlockOutputSignalBridge.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\ConvolutionBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\CustomAttributes\GlobalizedObject.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\CustomAttributes\GlobalizedPropertyDescriptor.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\CustomAttributes\ListTypeConverter.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\CustomAttributes\Parameter.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\CustomAttributes\SingleInputOutputBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\CustomAttributes\TemplateNamesTypeConverter.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\CustomAttributes\TextParameter.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\CustomAttributes\WaveletNamesTypeConverter.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\CustomFunctionBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\DemuxBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\DownSampleBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\DWTBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\ExportToCSVBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\FFTBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\GenerateSignalBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\IBlockInOutSignal.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\IDWTBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\IFFTBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\ImportFromCSVBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\ImportFromTextBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\InterpolationBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\InvertBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\LogicOperationBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\MuxBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\NormalDistributionBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\RampFunctionBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\RelationalOperatorBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\RepeatBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\SampleBasedOperationBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\ScalarOperationBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\ScaleBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\ShiftBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\SignalExtensionBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\SwitchBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\UniqueBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\UpSampleBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\Blocks\WaveletBlock.cs" />
+    <Compile Include="DWT\WaveletStudio\FFT\ManagedFft.cs" />
+    <Compile Include="DWT\WaveletStudio\Functions\WaveMath_Convolution.cs" />
+    <Compile Include="DWT\WaveletStudio\Functions\WaveMath_General.cs" />
+    <Compile Include="DWT\WaveletStudio\Functions\WaveMath_Interpolation.cs" />
+    <Compile Include="DWT\WaveletStudio\Functions\WaveMath_LogicOperations.cs" />
+    <Compile Include="DWT\WaveletStudio\Functions\WaveMath_Operations.cs" />
+    <Compile Include="DWT\WaveletStudio\Functions\WaveMath_RelationalOperations.cs" />
+    <Compile Include="DWT\WaveletStudio\Functions\WaveMath_Routing.cs" />
+    <Compile Include="DWT\WaveletStudio\Functions\WaveMath_Statistics.cs" />
+    <Compile Include="DWT\WaveletStudio\MemoryPool.cs" />
+    <Compile Include="DWT\WaveletStudio\Properties\Resources.Designer.cs" />
+    <Compile Include="DWT\WaveletStudio\Properties\Resources.pt-BR.Designer.cs" />
+    <Compile Include="DWT\WaveletStudio\Signal.cs" />
+    <Compile Include="DWT\WaveletStudio\SignalExtension.cs" />
+    <Compile Include="DWT\WaveletStudio\SignalGeneration\Binary.cs" />
+    <Compile Include="DWT\WaveletStudio\SignalGeneration\CommonSignalBase.cs" />
+    <Compile Include="DWT\WaveletStudio\SignalGeneration\Cosine.cs" />
+    <Compile Include="DWT\WaveletStudio\SignalGeneration\Sawtooth.cs" />
+    <Compile Include="DWT\WaveletStudio\SignalGeneration\Sine.cs" />
+    <Compile Include="DWT\WaveletStudio\SignalGeneration\Square.cs" />
+    <Compile Include="DWT\WaveletStudio\SignalGeneration\Triangle.cs" />
+    <Compile Include="DWT\WaveletStudio\Utils.cs" />
+    <Compile Include="DWT\WaveletStudio\Wavelet\CommonMotherWavelets.cs" />
+    <Compile Include="DWT\WaveletStudio\Wavelet\DecompositionLevel.cs" />
+    <Compile Include="DWT\WaveletStudio\Wavelet\Dwt.cs" />
+    <Compile Include="DWT\WaveletStudio\Wavelet\MotherWavelet.cs" />
     <Compile Include="FlowingTensors.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
@@ -141,6 +235,8 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
+    <EmbeddedResource Include="DWT\WaveletStudio\Properties\Resources.pt-BR.resx" />
+    <EmbeddedResource Include="DWT\WaveletStudio\Properties\Resources.resx" />
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
@@ -148,7 +244,9 @@
     <None Include="app.config">
       <SubType>Designer</SubType>
     </None>
-    <None Include="packages.config" />
+    <None Include="packages.config">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -157,16 +255,35 @@
   <ItemGroup>
     <Resource Include="myo-black-render.ico" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\keras-sharp\Backends\TensorFlow\TensorFlow %28CPU%29.csproj">
+      <Project>{0d6e435c-5ecb-4393-bb81-2047fd1fe419}</Project>
+      <Name>TensorFlow %28CPU%29</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\keras-sharp\Sources\Keras Sharp.csproj">
+      <Project>{0d05e6f5-7388-4e52-83b6-eea548518942}</Project>
+      <Name>Keras Sharp</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="DWT\WaveletStudio\WaveletStudio.csproj" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Import Project="..\packages\CenterSpace.NMath.Premium.6.2.0.43\build\CenterSpace.NMath.Premium.targets" Condition="Exists('..\packages\CenterSpace.NMath.Premium.6.2.0.43\build\CenterSpace.NMath.Premium.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('..\packages\CenterSpace.NMath.Premium.6.2.0.43\build\CenterSpace.NMath.Premium.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\CenterSpace.NMath.Premium.6.2.0.43\build\CenterSpace.NMath.Premium.targets'))" />
     <Error Condition="!Exists('..\packages\CenterSpace.NMath.6.2.0.43\build\CenterSpace.NMath.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\CenterSpace.NMath.6.2.0.43\build\CenterSpace.NMath.targets'))" />
-    <Error Condition="!Exists('..\packages\TensorFlowSharp.1.11.0\build\net45\TensorFlowSharp.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\TensorFlowSharp.1.11.0\build\net45\TensorFlowSharp.targets'))" />
+    <Error Condition="!Exists('..\packages\Accord.3.8.2-alpha\build\Accord.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Accord.3.8.2-alpha\build\Accord.targets'))" />
+    <Error Condition="!Exists('..\packages\CNTK.Deps.MKL.2.6.0\build\netstandard2.0\CNTK.Deps.MKL.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\CNTK.Deps.MKL.2.6.0\build\netstandard2.0\CNTK.Deps.MKL.targets'))" />
+    <Error Condition="!Exists('..\packages\CNTK.Deps.OpenCV.Zip.2.6.0\build\netstandard2.0\CNTK.Deps.OpenCV.Zip.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\CNTK.Deps.OpenCV.Zip.2.6.0\build\netstandard2.0\CNTK.Deps.OpenCV.Zip.targets'))" />
+    <Error Condition="!Exists('..\packages\CNTK.CPUOnly.2.6.0\build\netstandard2.0\CNTK.CPUOnly.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\CNTK.CPUOnly.2.6.0\build\netstandard2.0\CNTK.CPUOnly.targets'))" />
+    <Error Condition="!Exists('..\packages\TensorFlowSharp.1.4.0\build\TensorFlowSharp.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\TensorFlowSharp.1.4.0\build\TensorFlowSharp.targets'))" />
   </Target>
   <Import Project="..\packages\CenterSpace.NMath.6.2.0.43\build\CenterSpace.NMath.targets" Condition="Exists('..\packages\CenterSpace.NMath.6.2.0.43\build\CenterSpace.NMath.targets')" />
-  <Import Project="..\packages\TensorFlowSharp.1.11.0\build\net45\TensorFlowSharp.targets" Condition="Exists('..\packages\TensorFlowSharp.1.11.0\build\net45\TensorFlowSharp.targets')" />
+  <Import Project="..\packages\Accord.3.8.2-alpha\build\Accord.targets" Condition="Exists('..\packages\Accord.3.8.2-alpha\build\Accord.targets')" />
+  <Import Project="..\packages\CNTK.Deps.MKL.2.6.0\build\netstandard2.0\CNTK.Deps.MKL.targets" Condition="Exists('..\packages\CNTK.Deps.MKL.2.6.0\build\netstandard2.0\CNTK.Deps.MKL.targets')" />
+  <Import Project="..\packages\CNTK.Deps.OpenCV.Zip.2.6.0\build\netstandard2.0\CNTK.Deps.OpenCV.Zip.targets" Condition="Exists('..\packages\CNTK.Deps.OpenCV.Zip.2.6.0\build\netstandard2.0\CNTK.Deps.OpenCV.Zip.targets')" />
+  <Import Project="..\packages\CNTK.CPUOnly.2.6.0\build\netstandard2.0\CNTK.CPUOnly.targets" Condition="Exists('..\packages\CNTK.CPUOnly.2.6.0\build\netstandard2.0\CNTK.CPUOnly.targets')" />
+  <Import Project="..\packages\TensorFlowSharp.1.4.0\build\TensorFlowSharp.targets" Condition="Exists('..\packages\TensorFlowSharp.1.4.0\build\TensorFlowSharp.targets')" />
 </Project>

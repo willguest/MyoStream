@@ -11,9 +11,6 @@ namespace MyoStream
         public bool IsConnected { get; set; } = false;
         public bool IsReady { get; set; } = false;
 
-        public bool gotIMUCharac { get; set; } = false;
-        public bool gotEMGcharacs { get; set; } = false;
-
 
         // bluetooth low energy device
         public BluetoothLEDevice Device { get; set; }
@@ -37,5 +34,28 @@ namespace MyoStream
 
         // data handler to receive and process incoming streams
         public DataHandler myDataHandler { get; set; }
+
+
+        public int TryConnectEventHandlers()
+        {
+            try
+            {
+                imuCharac.ValueChanged += myDataHandler.IMU_ValueChanged;
+            }
+            catch { return 1; }
+
+            try {
+
+                emgCharacs[0].ValueChanged += myDataHandler.EMG_ValueChanged;
+                emgCharacs[1].ValueChanged += myDataHandler.EMG_ValueChanged;
+                emgCharacs[2].ValueChanged += myDataHandler.EMG_ValueChanged;
+                emgCharacs[3].ValueChanged += myDataHandler.EMG_ValueChanged;
+            }
+            catch { return 2; }
+
+            return 0;
+        }
     }
+
+
 }

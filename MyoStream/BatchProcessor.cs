@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
-using CenterSpace.NMath.Core;
+using WaveletStudio.Wavelet;
 
 
 namespace MyoStream
@@ -15,7 +15,7 @@ namespace MyoStream
         private string currentFilename = "";
         private int currentDataLength = 0;
 
-        public double[][] rawData = new double[9][];
+        public double[][] rawData;
         private double[][] midData = new double[9][];
         private double[][] clnData = new double[9][];
 
@@ -24,43 +24,41 @@ namespace MyoStream
 
         private StreamWriter sWriter;
         public List<string> WaveletNames = new List<string>();
-        public List<Wavelet.Wavelets> ListOfWavelets = new List<Wavelet.Wavelets>();
+        public List<object[]> ListOfWavelets = new List<object[]>();
         public int SelectedWaveletIndex { get; set; }
-        private Wavelet.Wavelets currentWavelet;
+
+        private MotherWavelet currentWavelet;
 
         public BatchProcessor()
         {      
+
         }
 
         public void IdentifyWavelets()
         {
-            ListOfWavelets = Enum.GetValues(typeof(Wavelet.Wavelets)).Cast<Wavelet.Wavelets>().ToList();
-
-            foreach (Wavelet.Wavelets w in ListOfWavelets)
+            foreach (KeyValuePair<string, object[]> kvp in CommonMotherWavelets.Wavelets)
             {
-                WaveletNames.Add(w.ToString());
+                WaveletNames.Add(kvp.Key);
+                ListOfWavelets.Add(kvp.Value);
             }
         }
 
         public void SelectWavelet(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             string waveName = (sender as System.Windows.Controls.ComboBox).SelectedItem as string;
-            SelectedWaveletIndex = WaveletNames.IndexOf(waveName);
-            currentWavelet = ListOfWavelets[SelectedWaveletIndex];
-
-            
+            currentWavelet = CommonMotherWavelets.GetWaveletFromName(waveName);
         }
 
 
 
-        public int LoadFile(string directory, string filename)
+        public int LoadFileFromDir(string directory, string filename)
         {
             long startTime = DateTime.UtcNow.Ticks;
-
+            int numberOfChannels = 0;
             currentDirectory = directory;
             currentFilename = filename + ".csv";
             string filePath = directory + "/" + currentFilename;
-            
+
             try
             {
                 var contents = File.ReadAllText(filePath).Split('\n');
@@ -68,14 +66,33 @@ namespace MyoStream
                 var csv = from line in contents
                           select line.Split(',').ToArray();
 
-                StructureData(csv.Count() - 1, csv.ToArray());
+                if (filename.Contains("EMG")) { numberOfChannels = 9; }
+                if (filename.Contains("IMU")) { numberOfChannels = 11; }
+
+                rawData = new double[numberOfChannels][];
+
+                StructureData(numberOfChannels, csv.Count() - 1, csv.ToArray());
 
                 currentDataLength = rawData[0].Count() - 1;
-
                 long duration = DateTime.UtcNow.Ticks - startTime;
+                int dataCh = rawData.Length - 1;
+                double[][] rawDataOut = new double[dataCh][];
+
+                for (int x = 1; x < rawData.Length; x++)
+                {
+                    //rawData8[x-1] = new double[currentDataLength];
+                    rawDataOut[x - 1] = rawData[x];
+                }
+
                 Console.WriteLine(currentDataLength + " data points loaded and arranged in " + (float)duration / 10000f + " milliseconds");
 
+
+                //FlowingTensors myTF = new FlowingTensors();
+                //myTF.DoSomeWork(rawData8);
+
+
                 return currentDataLength;
+
             }
             catch (IOException e)
             {
@@ -86,10 +103,10 @@ namespace MyoStream
         }
 
 
-        public void StructureData(int dataLength, string[][] inputArray)
+        public void StructureData(int noChannels, int dataLength, string[][] inputArray)
         {
             string[] titles = inputArray[0];
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < noChannels; i++)
             {
                 rawData[i] = new double[dataLength];     
             }
@@ -98,9 +115,10 @@ namespace MyoStream
             for (int x = 1; x < dataLength; x++)
             {
                 double[] _dubs = Array.ConvertAll(inputArray[x], double.Parse);
-                for (int y=0; y < 9; y++)
+
+                for (int y = 1; y < noChannels; y++)
                 {
-                    rawData[y][x - 1] = _dubs[y];
+                    rawData[y - 1][x - 1] = _dubs[y];
                 }
             }
         }
@@ -109,20 +127,24 @@ namespace MyoStream
         public void StoreData()
         {
             Prep_Datastream();
-            Task storeIt = Task.Run(async () => await StoreData(currentDataLength, midData, clnData).ConfigureAwait(true));
+            Task storeIt = Task.Run(async () => await StoreEMGData(currentDataLength, midData, clnData).ConfigureAwait(true));
             sWriter.Close();
             sWriter.Dispose();
             sWriter = null;
         }
 
-        public void PlotData()
+
+        public void PlotEMGData()
         {
             var myPlotter = new Plotter();
-            Task showIt = Task.Run(() => myPlotter.InitialisePlot(midData[4], currentWavelet, 4));
-
+            Task showIt = Task.Run(() => myPlotter.InitialisePlot(midData[7], currentWavelet, 7));
         }
 
-
+        public void PlotIMUData(string session, string directory)
+        {
+            Plotter newPlotter = new Plotter();
+            newPlotter.BuildIMUChart(session, directory + "/Images", rawData);
+        }
 
 
         private void Prep_Datastream()
@@ -162,8 +184,8 @@ namespace MyoStream
             if (currentDataLength < 1024)
             {
                 n = 2;
-                while (n * 2 <= currentDataLength)
-                { n *= 2; }
+                while (n + 2 <= currentDataLength)
+                { n += 2; }
             }
             else
             {
@@ -188,7 +210,7 @@ namespace MyoStream
         }
 
 
-        private async Task StoreData(int noRecords, double[][] rawEMG, double[][] resEMG)
+        private async Task StoreEMGData(int noRecords, double[][] rawEMG, double[][] resEMG)
         {
 
             if (sWriter.BaseStream != null)

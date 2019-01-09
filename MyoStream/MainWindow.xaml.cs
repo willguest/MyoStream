@@ -15,14 +15,19 @@ using Windows.Devices.Enumeration;
 using System.Threading;
 using System.IO;
 using System.Collections.Specialized;
+using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace MyoStream
 {
     public partial class MainWindow
     {
-        private string deviceFilterString = "Myo";      // Search string for devices
-        public int _tick = 100;                         // millisecond interval between updates
-        private String directory = "C:/Users/16102434/Desktop/Current Work/Myo/RDWT/testData";          // directory to pick up files for batch processing
+        public bool EnableToggle = false;
+        public string SessionId;
+
+        private string deviceFilterString = "Myo";                                                  // Search string for devices
+        public int _tick = 100;                                                                     // millisecond interval between updates
+        private String directory = "C:/Users/16102434/Desktop/Current Work/Myo/testData";           // directory to pick up files for batch processing
 
         #region Variables
 
@@ -61,6 +66,8 @@ namespace MyoStream
 
         #endregion Variables
 
+        private void ToggleEnabled(object sender, EventArgs e)
+        { ToggleButton(); }
 
         private void StopDataStream(object sender, EventArgs e)
         { StopDataStream(true); }
@@ -71,12 +78,11 @@ namespace MyoStream
         private void LoadFile_Click(object sender, EventArgs e)
         { LoadDataFile(); }
 
-        private void CleanFile_Click(object sender, EventArgs e)
-        { CleanEMGData(); }
-
         private void ShowCharts_Click(object sender, EventArgs e)
         { ShowCharts(); }
 
+        private void Reset_Right_Click(object sender, EventArgs e)
+        { ResetDevices(); }
 
         private void dispatcherTimer_Tick(object sender, object e)
         { Update_Timer(); }
@@ -88,7 +94,7 @@ namespace MyoStream
         {
             InitializeComponent();
             DataContext = this;
-
+            
             deviceList.Clear();
 
             dispatcherTimer.Tick += dispatcherTimer_Tick;
@@ -101,15 +107,40 @@ namespace MyoStream
 
             bondedMyos.CollectionChanged += bondedMyos_Changed;
 
-            SeteDataBindings();
+            SetDataBindings();
         }
 
+        private void ToggleButton()
+        {
+            EnableToggle = !EnableToggle;
+            Random r = new Random();
+            Brush brush = new SolidColorBrush(Color.FromRgb((byte)r.Next(1, 255),
+              (byte)r.Next(1, 255), (byte)r.Next(1, 233)));
+            btnGo.Background = brush;
 
-        private void SeteDataBindings()
+            if ((string)btnGo.Content == "Go")
+            {
+                btnGo.Content = "Stop";
+            }
+            else if ((string)btnGo.Content == "Stop")
+            {
+                btnGo.Content = "Go";
+            }
+
+            SessionId = txtSessionId.Text;
+        }
+
+        public void RefreshUI()
+        {
+            RefreshDeviceStatus();
+            SetDataBindings();
+        }
+
+        private void SetDataBindings()
         {
             string[] files;
             files = Directory.GetFiles(directory, "*", SearchOption.AllDirectories).Select(x => Path.GetFileNameWithoutExtension(x)).ToArray();
-            cmbFileList.SetBinding(System.Windows.Controls.ComboBox.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = files });
+            cmbFileList.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = files });
 
         }
         
@@ -118,20 +149,30 @@ namespace MyoStream
             string filename = cmbFileList.Text;
 
             _bp = new BatchProcessor();
-            int noRecords = _bp.LoadFile(directory, filename);
-            txtLoadResult.Text = noRecords + " records";
-            _bp.PrepareDataArrays(noRecords);
-
-            _bp.IdentifyWavelets();
-            cmbWavelets.SetBinding(System.Windows.Controls.ComboBox.ItemsSourceProperty,new System.Windows.Data.Binding() { Source = _bp.WaveletNames });
+            cmbWavelets.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = _bp.WaveletNames });
             cmbWavelets.SelectionChanged += _bp.SelectWavelet;
-        }
 
-        private void CleanEMGData()
-        {
-            if (_bp != null)
+            int noRecords = _bp.LoadFileFromDir(directory, filename);
+            txtLoadResult.Text = noRecords + " records";
+
+            int endsessId = filename.IndexOf("_");
+            if (endsessId > 0)
             {
-                _bp.CleanData();
+                SessionId = filename.Substring(0, endsessId);
+            }
+            else
+            {
+                SessionId = "unknown";
+            }
+
+            if (filename.Contains("EMG"))
+            {
+                _bp.PrepareDataArrays(noRecords);
+                _bp.IdentifyWavelets();
+            }
+            else if (filename.Contains("IMU"))
+            {
+                _bp.PlotIMUData(SessionId, directory);
             }
         }
 
@@ -139,7 +180,7 @@ namespace MyoStream
         {
             if (_bp != null)
             {
-                _bp.PlotData();
+                _bp.PlotEMGData();
             }
         }
 
@@ -216,10 +257,11 @@ namespace MyoStream
             if (connectedMyos.Count <= 2 && !alreadyFound)
             { connectedMyos.Add(newMyo); }
 
-            Console.WriteLine(newMyo.Name + " is connected");
+            Console.WriteLine(newMyo.Name + " created.");
 
             return newMyo.Id;
         }
+
 
         public void ConnectToArmband(Guid armbandGuid)
         {
@@ -227,8 +269,17 @@ namespace MyoStream
             MyoArmband myo = connectedMyos.Where(g => (g.Id == armbandGuid)).FirstOrDefault();
             int myoIndex = connectedMyos.IndexOf(myo);
 
+            if (myo == null)
+            {
+                Console.WriteLine("myo object was null");
+                return;
+            }
+
             // hook control service, establishing a connection
-            GattDeviceServicesResult controlserv = Task.Run(() => GetServiceAsync(myo.Device, myoGuids["MYO_SERVICE_GCS"])).Result;
+            Task<GattDeviceServicesResult> grabIt = Task.Run(() => GetServiceAsync(myo.Device, myoGuids["MYO_SERVICE_GCS"]));
+            grabIt.Wait();
+            var controlserv = grabIt.Result;
+
             myo.controlService = controlserv.Services.FirstOrDefault();
 
             // ensure the control service is ready
@@ -335,8 +386,8 @@ namespace MyoStream
 
                 foreach (string s in bondedMyos.ToList())
                 {
-                    if (s == modifiedMyo.Name) { bondedMyos.Remove(s); } 
-                    }
+                    if (s == modifiedMyo.Name) { bondedMyos.Remove(s); }
+                }
 
                 connectedMyos.Remove(modifiedMyo);
                 Disconnect_Myo(modifiedMyo.Id);
@@ -367,8 +418,7 @@ namespace MyoStream
                 {
                     deviceWatcher.Stop();
                     BleWatcher.Stop();
-                    Console.WriteLine("watchers stopped");
-                    //btnStartStream.IsEnabled = true;
+                    Console.WriteLine("Watchers stopped");
                 }
             }
             if (e.OldItems != null)
@@ -380,7 +430,8 @@ namespace MyoStream
                     Console.WriteLine("Watchers started");
                 }
             }
-            UpdateConnectionStatus();
+
+            RefreshDeviceStatus();
         }
 
         #endregion Connect and Disconnect
@@ -428,15 +479,11 @@ namespace MyoStream
                 myo.imuService = myServices.Services.FirstOrDefault();
                 if (myo.imuService == null) { return 2; }
 
-                var imuDataChar = Task.Run(() => GetCharac(myo.imuService, myoGuids["IMU_DATA_CHARAC"])).Result;
+                GattCharacteristicsResult imuDataChar = Task.Run(() => GetCharac(myo.imuService, myoGuids["IMU_DATA_CHARAC"])).Result;
                 myo.imuCharac = imuDataChar.Characteristics.FirstOrDefault();
-                //Task<GattCommunicationStatus> notifyIMU = 
-                Notify(myo.imuCharac, charDesVal_notify);
-                //notifyIMU.Wait();
-
                 if (myo.imuCharac == null) { return 3; }
-                myo.imuCharac.ValueChanged += myo.myDataHandler.IMU_ValueChanged;
 
+                Notify(myo.imuCharac, charDesVal_notify);
 
                 // Establishing an EMG data connection
                 var myservs = Task.Run(() => GetServiceAsync(myo.Device, myoGuids["MYO_EMG_SERVICE"])).Result;
@@ -449,15 +496,13 @@ namespace MyoStream
                     string currEMGChar = "EMG_DATA_CHAR_" + t.ToString();
                     var tempCharac = Task.Run(() => GetCharac(myo.emgService, myoGuids[currEMGChar])).Result;
                     myo.emgCharacs[t] = tempCharac.Characteristics.FirstOrDefault();
-
+                    
                     EmgNotificationTasks[t] = Notify(myo.emgCharacs[t], charDesVal_notify);
+                    myo.EmgConnStat[t] = EmgNotificationTasks[t].Result;
                 }
                 Task.WaitAll(EmgNotificationTasks);
 
-                myo.emgCharacs[0].ValueChanged += myo.myDataHandler.EMG0_ValueChanged;
-                myo.emgCharacs[1].ValueChanged += myo.myDataHandler.EMG1_ValueChanged;
-                myo.emgCharacs[2].ValueChanged += myo.myDataHandler.EMG2_ValueChanged;
-                myo.emgCharacs[3].ValueChanged += myo.myDataHandler.EMG3_ValueChanged;
+                int errhandCode = myo.TryConnectEventHandlers();
 
                 int emgErrCode = (int)myo.EmgConnStat[0] + (int)myo.EmgConnStat[1] + (int)myo.EmgConnStat[2] + (int)myo.EmgConnStat[3];
                 if (emgErrCode != 0) { return 5; }
@@ -466,8 +511,8 @@ namespace MyoStream
                 vibrate_armband(myo);
                 myo.IsReady = true;
                 myo.DevConnStat = BluetoothConnectionStatus.Connected;
-                myo.myDataHandler.Prep_EMG_Datastream(myo.Name);
-                myo.myDataHandler.Prep_IMU_Datastream(myo.Name);
+                myo.myDataHandler.Prep_EMG_Datastream(myo.Name, SessionId);
+                myo.myDataHandler.Prep_IMU_Datastream(myo.Name, SessionId);
 
                 if (!bondedMyos.Contains(myo.Name))
                 { bondedMyos.Add(myo.Name); }
@@ -509,7 +554,6 @@ namespace MyoStream
                 {
                     Write(myo.cmdCharac, startStreamCommand);
                     dispatcherTimer.Start();
-
                 }
             }
 
@@ -540,6 +584,8 @@ namespace MyoStream
 
             btnStopStream.Visibility = System.Windows.Visibility.Hidden;
             btnStartStream.Visibility = System.Windows.Visibility.Visible;
+
+            RefreshUI();
         }
 
 
@@ -570,25 +616,28 @@ namespace MyoStream
             string mydocpath = Environment.CurrentDirectory + @"\Devices\";
             string fileName = args.Name + ".txt";
 
-            // Append text to an existing file named "WriteLines.txt".
-            using (StreamWriter outputFile = new StreamWriter(mydocpath + fileName, append: false))
+            if (!File.Exists(mydocpath + fileName))
             {
-                foreach (KeyValuePair<String, Object> kvp in dictionary)
+                // Append text to an existing file named "WriteLines.txt".
+                using (StreamWriter outputFile = new StreamWriter(mydocpath + fileName, append: false))
                 {
-                    outputFile.WriteLine($"{kvp.Key}: {kvp.Value}");
+                    foreach (KeyValuePair<String, Object> kvp in dictionary)
+                    {
+                        outputFile.WriteLine($"{kvp.Key}: {kvp.Value}");
+                    }
+                    outputFile.Flush();
+                    outputFile.Close();
                 }
-                outputFile.Flush();
-                outputFile.Close();
-            }
 
-            var macaddr = dictionary.Single(k => k.Key.Contains("DeviceAddress")).Value.ToString();
-            addressBook.Add(macaddr);
-            Console.WriteLine($"{args.Name} added to Address Book: {macaddr}");
+                var macaddr = dictionary.Single(k => k.Key.Contains("DeviceAddress")).Value.ToString();
+                addressBook.Add(macaddr);
+                Console.WriteLine($"{args.Name} added to Address Book: {macaddr}");
+            }
         }
 
 
 
-        private void UpdateConnectionStatus()
+        private void RefreshDeviceStatus()
         {
             MyoArmband foundLeft = connectedMyos.Where(g => (g.Name == "MyoL")).FirstOrDefault();
             MyoArmband foundRight = connectedMyos.Where(g => (g.Name == "MyoR")).FirstOrDefault();
@@ -599,6 +648,7 @@ namespace MyoStream
                 if (foundLeft != null)
                 {
                     txtDevConnStatLt.Text = foundLeft.DevConnStat.ToString();
+                    txtDevLeftRecords.Text = foundLeft.myDataHandler.totalEMGRecords + ", " + foundLeft.myDataHandler.totalIMURecords;
                     if (foundLeft.DevConnStat == BluetoothConnectionStatus.Connected)
                     {
                         readyMyos++;
@@ -608,6 +658,7 @@ namespace MyoStream
                 if (foundRight != null)
                 {
                     txtDevConnStatRt.Text = foundRight.DevConnStat.ToString();
+                    txtDevRightRecords.Text = foundRight.myDataHandler.totalEMGRecords + ", " + foundRight.myDataHandler.totalIMURecords;
                     if (foundRight.DevConnStat == BluetoothConnectionStatus.Connected)
                     {
                         readyMyos++;
@@ -616,9 +667,30 @@ namespace MyoStream
                 }
                 if (readyMyos == 2)
                 {
+                    Console.WriteLine($"Two Myos are connected  8-]");
                     //btnStartStream.IsEnabled = true;
                 }
             });
+        }
+
+
+        private void ResetDevices()
+        {
+            foreach (MyoArmband myo in connectedMyos.ToList())
+            {
+                Disconnect_Myo(myo.Id);
+                connectedMyos.Remove(myo);
+
+                foreach (string s in bondedMyos.ToList())
+                {
+                    if (s == myo.Name) { bondedMyos.Remove(s); }
+                }
+
+            }
+
+            currentDevice = null;
+            isConnecting = false;
+            
         }
 
 
@@ -627,17 +699,17 @@ namespace MyoStream
 
         #region Watcher Functions
 
-
-        private bool watcherLocked = false;
-
         private async Task<BluetoothLEDevice> getDevice(ulong btAddr)
         {
-            watcherLocked = true;   
             return await BluetoothLEDevice.FromBluetoothAddressAsync(btAddr);
         }
 
+
         private void WatcherOnReceived(BluetoothLEAdvertisementWatcher sender, BluetoothLEAdvertisementReceivedEventArgs args)
         {
+            if (!EnableToggle)
+            { return; }
+
             // Address book checking to ensure correct device selection
             string tempMac = args.BluetoothAddress.ToString("X");
             string regex = "(.{2})(.{2})(.{2})(.{2})(.{2})(.{2})";
@@ -725,7 +797,7 @@ namespace MyoStream
         private void DeviceWatcher_Added(DeviceWatcher watcher, DeviceInformation args)
         {
             deviceList.Add(args.Name);
-            UpdateAddressBook(args);
+            //UpdateAddressBook(args);
         }
 
 
@@ -799,6 +871,7 @@ namespace MyoStream
         }
 
         #endregion GATT Functions
+
     }
 }
 
