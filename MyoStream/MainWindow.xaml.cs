@@ -147,15 +147,13 @@ namespace MyoStream
         private void LoadDataFile()
         {
             string filename = cmbFileList.Text;
-
             _bp = new BatchProcessor();
-            cmbWavelets.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = _bp.WaveletNames });
-            cmbWavelets.SelectionChanged += _bp.SelectWavelet;
 
+            // Load file (getting data length)
             int noRecords = _bp.LoadFileFromDir(directory, filename);
             txtLoadResult.Text = noRecords + " records";
 
-            int endsessId = filename.IndexOf("_");
+            int endsessId = filename.IndexOf("-");
             if (endsessId > 0)
             {
                 SessionId = filename.Substring(0, endsessId);
@@ -167,6 +165,11 @@ namespace MyoStream
 
             if (filename.Contains("EMG"))
             {
+                // Update wavelet list
+                
+                cmbWavelets.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = _bp.WaveletNames });
+                cmbWavelets.SelectionChanged += _bp.SelectWavelet;
+
                 _bp.PrepareDataArrays(noRecords);
                 _bp.IdentifyWavelets();
             }
@@ -180,7 +183,7 @@ namespace MyoStream
         {
             if (_bp != null)
             {
-                _bp.PlotEMGData();
+                _bp.PlotEMGData(SessionId, directory);
             }
         }
 

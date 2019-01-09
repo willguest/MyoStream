@@ -59,11 +59,12 @@ namespace MyoStream
         private double[] startEMG = new double[9];
         private double[] cleanEMG = new double[9];
         private int cnt = 0;
-        private int sessionNo = 0;
+
+        private int sessionNo = 1;
+        private string date = DateTime.Now.Date.ToString("yyyyMMdd");
 
         // IMU data storage
-        private List<float[]> imuList = new List<float[]>();
-        private Int16[][] _IMUdata;
+        //private Int16[][] _IMUdata;
         private float[][] _fltIMUd;
         private Quaternion _myoQuaternion { get; set; }
 
@@ -156,14 +157,6 @@ namespace MyoStream
 
             Task.Run (async () => await StoreIMUData(IMUString).ConfigureAwait(true));
 
-
-
-            var longOne = new float[]{_fltIMUd[0][0], _fltIMUd[0][1], _fltIMUd[0][2], _fltIMUd[0][3],
-                                    _fltIMUd[1][0], _fltIMUd[1][1], _fltIMUd[1][2],
-                                    _fltIMUd[2][0], _fltIMUd[2][1], _fltIMUd[2][2]};
-
-            imuList.Add(longOne);
-
             /*
             orientationX = _IMUdata[0][0];
             orientationY = _IMUdata[0][1];
@@ -200,30 +193,27 @@ namespace MyoStream
             System.Buffer.BlockCopy(fileContent, 14, rawIMUdata[2], 0, 6);
 
 
-
             // Normalise
             for (int u = 0; u < 4; u++)
-            { fltIMUdata[0][u] = ((float)(rawIMUdata[0][u] / 32768.0f)) + 0.5f; } // done
+            { fltIMUdata[0][u] = ((float)(rawIMUdata[0][u] / 32768.0f)) + 0.5f; }
 
             for (int v = 0; v < 3; v++)
-            { fltIMUdata[1][v] = (float)(rawIMUdata[1][v] / 8192.0f); }
+            { fltIMUdata[1][v] = ((float)(rawIMUdata[1][v] / 8192.0f)) + 0.5f; }
 
             for (int w = 0; w < 3; w++)
             { fltIMUdata[2][w] = ((float)(rawIMUdata[2][w] / 32768.0f)) + 0.5f; }
             
 
-
-            /* Normalise 
+            /* Scaling (old)
             for (int u = 0; u < 4; u++)
             { rawIMUdata[0][u] = (short)(rawIMUdata[0][u] / 182.044f); }
 
             for (int v = 0; v < 3; v++)
-            { rawIMUdata[1][v] = (short)(rawIMUdata[1][v]); } // 22.756f
+            { rawIMUdata[1][v] = (short)(rawIMUdata[1][v]) / 22.756f; }
 
             for (int w = 0; w < 3; w++)
             { rawIMUdata[2][w] = (short)(rawIMUdata[2][w]); }
             */
-
 
             return fltIMUdata;
         }
@@ -236,16 +226,16 @@ namespace MyoStream
         public async void Prep_EMG_Datastream(string deviceName, string sessionId)
         {
             thisDeviceName = deviceName;
-            var _now = DateTime.Now.ToString();
+
             string localFolder = "C:/Users/16102434/Desktop/Current Work/Myo/testData";  //Environment.CurrentDirectory;
-            string fileName = (sessionId + "_" + sessionNo + "_" + deviceName + "_EMG_Data.csv");
+            string fileName = (sessionId + "_" + date + "_" + sessionNo.ToString("D3") + "-" + deviceName + "_EMG_Data.csv");
 
             string headers = "Timestamp 0, raw_EMG_0, raw_EMG_1, raw_EMG_2, raw_EMG_3, raw_EMG_4, raw_EMG_5, raw_EMG_6, raw_EMG_7,";
 
             while (File.Exists(localFolder + "/" + fileName))
             {
                 sessionNo++;
-                fileName = (sessionId + "_" + sessionNo + "_" + deviceName + "_EMG_Data.csv");
+                fileName = (sessionId + "_" + date + "_" + sessionNo.ToString("D3") + "-" + deviceName + "_EMG_Data.csv");                              // incorp. number earlier
             }
 
             emgWriter = new StreamWriter(localFolder + "/" + fileName, append: true, encoding: System.Text.Encoding.UTF8, bufferSize: 1024);
@@ -256,21 +246,21 @@ namespace MyoStream
             emgWriter.AutoFlush = false;
         }
 
+
         public void Prep_IMU_Datastream(string deviceName, string sessionId)
         {
-            var _now = DateTime.Now.ToString();
             string localFolder = "C:/Users/16102434/Desktop/Current Work/Myo/testData";  // Environment.CurrentDirectory;
-            string fileName = (sessionId + "_" + sessionNo + "_" + deviceName + "_IMU_Data.csv");
-
-            string headers = "Timestamp 0, orientationW, orientationX, orientationY, orientationZ," +
-                "accelerationX, accelerationY, accelerationZ," +
-                "gyroscopeX, gyroscopeY, gyroscopeZ";
+            string fileName = (sessionId + "_" + date + "_" + sessionNo.ToString("D3") + "-" + deviceName + "_IMU_Data.csv");
 
             while (File.Exists(localFolder + "/" + fileName))
             {
                 sessionNo++;
-                fileName = (sessionId + "_" + sessionNo + "_" + deviceName + "_IMU_Data.csv");
+                fileName = (sessionId + "_" + date + "_" + sessionNo.ToString("D3") + "-" + deviceName + "_IMU_Data.csv");
             }
+
+            string headers = "Timestamp 0, orientationW, orientationX, orientationY, orientationZ," +
+                "accelerationX, accelerationY, accelerationZ," +
+                "gyroscopeX, gyroscopeY, gyroscopeZ";
 
             imuWriter = new StreamWriter(localFolder + "/" + fileName, append: true);
 

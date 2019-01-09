@@ -4,7 +4,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
+using WaveletStudio;
 using WaveletStudio.Wavelet;
+
+
+
 
 
 namespace MyoStream
@@ -16,7 +20,7 @@ namespace MyoStream
         private int currentDataLength = 0;
 
         public double[][] rawData;
-        private double[][] midData = new double[9][];
+        //private double[][] midData = new double[9][];
         private double[][] clnData = new double[9][];
 
         private double[] startEMG = new double[9];
@@ -30,7 +34,7 @@ namespace MyoStream
         private MotherWavelet currentWavelet;
 
         public BatchProcessor()
-        {      
+        {
 
         }
 
@@ -105,10 +109,11 @@ namespace MyoStream
 
         public void StructureData(int noChannels, int dataLength, string[][] inputArray)
         {
+            currentDataLength = dataLength;
             string[] titles = inputArray[0];
             for (int i = 0; i < noChannels; i++)
             {
-                rawData[i] = new double[dataLength];     
+                rawData[i] = new double[dataLength];
             }
 
 
@@ -127,17 +132,57 @@ namespace MyoStream
         public void StoreData()
         {
             Prep_Datastream();
-            Task storeIt = Task.Run(async () => await StoreEMGData(currentDataLength, midData, clnData).ConfigureAwait(true));
+            Task storeIt = Task.Run(async () => await StoreEMGData(currentDataLength, rawData, clnData).ConfigureAwait(true));
             sWriter.Close();
             sWriter.Dispose();
             sWriter = null;
         }
 
 
-        public void PlotEMGData()
+        public void PlotEMGData(string session, string directory)
         {
+            int noChannels = 8;
+            int maxDecompLev = 5;
+
+            // prepare arrays for decomposition data
+            double[][][] allDWT = new double[maxDecompLev][][];
+            double[][] allDetails = new double[noChannels][];
+            double[][] allApproxs = new double[noChannels][];
+
+            for (int d = 0; d < maxDecompLev; d++)
+            {
+                allDWT[d] = new double[noChannels][];
+                for (int ch = 0; ch < noChannels; ch++)
+                {
+                    allDWT[d][ch] = new double[currentDataLength];
+                }
+            }
+            for (int ch = 0; ch < noChannels; ch++)
+            {
+                allDetails[ch] = new double[detailsAllLevels.Length];
+                allApproxs[ch] = new double[approxAllLevels.Length];
+            }
+
+
+            // perform DWT
             var myPlotter = new Plotter();
-            Task showIt = Task.Run(() => myPlotter.InitialisePlot(midData[7], currentWavelet, 7));
+
+            for (int x = 0; x < noChannels; x++)
+            {
+                double[][] DWTData = Task.Run(() => PerformDWThere(rawData[x], currentWavelet, maxDecompLev)).Result;
+
+                for (int y = 0; y < maxDecompLev; y++)
+                {
+                    allDWT[y][x] = DWTData[y];
+                }
+
+                allDetails[x] = detailsAllLevels;
+                Array.Resize(ref detailsAllLevels, 0);
+                allApproxs[x] = approxAllLevels;
+                Array.Resize(ref approxAllLevels, 0);
+            }
+
+            myPlotter.BuildDWTChart(session, directory + "/Images", currentWavelet.Name, maxDecompLev, rawData, allDetails, allApproxs, allDWT);
         }
 
         public void PlotIMUData(string session, string directory)
@@ -202,10 +247,8 @@ namespace MyoStream
 
             for (int z = 0; z < 9; z++)
             {
-                midData[z] = new double[noPoints];
                 clnData[z] = new double[noPoints];
 
-                Array.Copy(rawData[z], 0, midData[z], 0, noPoints);
             }
         }
 
@@ -232,6 +275,43 @@ namespace MyoStream
                 }
                 sWriter.Flush();
             }
+        }
+        double[] approxAllLevels = new double[0];
+        double[] detailsAllLevels = new double[0];
+
+        List<DecompositionLevel> dwt = new List<DecompositionLevel>();
+
+        public async Task<double[][]> PerformDWThere(double[] inputData, MotherWavelet inputWavelet, int maxDecompLevel)
+        {
+            Signal signal = new Signal(inputData);
+            MotherWavelet wavelet = inputWavelet;
+
+            double[][] reconstrData = new double[maxDecompLevel][];
+
+            for (int r = 1; r <= maxDecompLevel; r++)
+            {
+                dwt = DWT.ExecuteDWT(signal, wavelet, r, SignalExtension.ExtensionMode.SymmetricWholePoint, WaveletStudio.Functions.ConvolutionModeEnum.Normal);
+
+                reconstrData[r - 1] = new double[signal.SamplesCount];
+                reconstrData[r - 1] = DWT.ExecuteIDWT(dwt, wavelet, r, WaveletStudio.Functions.ConvolutionModeEnum.Normal);
+
+            }
+
+            foreach (DecompositionLevel d in dwt)
+            {
+                int oldSizeA = approxAllLevels.Length;
+                int newSizeA = oldSizeA + d.Approximation.Length;
+                Array.Resize(ref approxAllLevels, newSizeA);
+                Array.Copy(d.Approximation, 0, approxAllLevels, oldSizeA, d.Approximation.Length);
+
+                int oldSizeD = detailsAllLevels.Length;
+                int newSizeD = oldSizeD + d.Details.Length;
+                Array.Resize(ref detailsAllLevels, newSizeD);
+                Array.Copy(d.Details, 0, detailsAllLevels, oldSizeA, d.Details.Length);
+
+            }
+
+            return reconstrData;
         }
 
     }
