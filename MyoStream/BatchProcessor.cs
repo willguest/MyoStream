@@ -8,20 +8,21 @@ using WaveletStudio;
 using WaveletStudio.Wavelet;
 
 
-
-
-
 namespace MyoStream
 {
     public class BatchProcessor
     {
         private string currentDirectory = "";
         private string currentFilename = "";
+
+        private int numChannels = 0;
         private int currentDataLength = 0;
 
         public double[][] rawData;
-        //private double[][] midData = new double[9][];
-        private double[][] clnData = new double[9][];
+        private double[][] clnData;
+
+        private double[][] detailData;
+        private double[][] approxData;
 
         private double[] startEMG = new double[9];
         private double[] cleanEMG = new double[9];
@@ -30,12 +31,18 @@ namespace MyoStream
         public List<string> WaveletNames = new List<string>();
         public List<object[]> ListOfWavelets = new List<object[]>();
         public int SelectedWaveletIndex { get; set; }
-
         private MotherWavelet currentWavelet;
+
+        List<double[]> approxFirst = new List<double[]>();
+        List<double[]> approxSecnd = new List<double[]>();
+        List<double[]> detailFirst = new List<double[]>();
+        List<double[]> detailSecnd = new List<double[]>();
+
+        List<DecompositionLevel> dwt = new List<DecompositionLevel>();
 
         public BatchProcessor()
         {
-
+            
         }
 
         public void IdentifyWavelets()
@@ -61,7 +68,7 @@ namespace MyoStream
         public int LoadFileFromDir(string directory, string filename)
         {
             long startTime = DateTime.UtcNow.Ticks;
-            int numberOfChannels = 0;
+
             currentDirectory = directory;
             currentFilename = filename + ".csv";
             string filePath = directory + "/" + currentFilename;
@@ -73,29 +80,23 @@ namespace MyoStream
                 var csv = from line in contents
                           select line.Split(',').ToArray();
 
-                if (filename.Contains("EMG")) { numberOfChannels = 9; }
-                if (filename.Contains("IMU")) { numberOfChannels = 11; }
+                //if (filename.Contains("EMG")) { numChannels = 8; }
+                //if (filename.Contains("IMU")) { numChannels = 10; }
 
-                rawData = new double[numberOfChannels][];
+                numChannels = csv.First().Count();
+                currentDataLength = csv.Count() - 1;
 
-                StructureData(numberOfChannels, csv.Count() - 1, csv.ToArray());
+                rawData = new double[numChannels][];
+                clnData = new double[numChannels][];
+                rawData = StructureData(numChannels, csv.Count(), csv.ToArray());            // change this line for files without headers and/or timestamps
 
-                currentDataLength = rawData[0].Count() - 1;
                 long duration = DateTime.UtcNow.Ticks - startTime;
-                int dataCh = rawData.Length - 1;
-                double[][] rawDataOut = new double[dataCh][];
-
-                for (int x = 1; x < rawData.Length; x++)
-                {
-                    //rawData8[x-1] = new double[currentDataLength];
-                    rawDataOut[x - 1] = rawData[x];
-                }
 
                 Console.WriteLine(currentDataLength + " data points loaded and arranged in " + (float)duration / 10000f + " milliseconds");
 
 
                 //FlowingTensors myTF = new FlowingTensors();
-                //myTF.DoSomeWork(rawData8);
+                //myTF.DoSomeWork(rawData);
 
 
                 return currentDataLength;
@@ -110,25 +111,37 @@ namespace MyoStream
         }
 
 
-        public void StructureData(int noChannels, int dataLength, string[][] inputArray)
+        public double[][] StructureData(int noChannels, int dataLength, string[][] inputArray)
         {
-            currentDataLength = dataLength;
             string[] titles = inputArray[0];
-            for (int i = 0; i < noChannels; i++)
+            double[][] currData = new double[noChannels - 1][];
+
+            for (int i = 0; i < noChannels - 1; i++)
             {
-                rawData[i] = new double[dataLength];
+                currData[i] = new double[dataLength - 2];
             }
 
-
-            for (int x = 1; x < dataLength; x++)
+            try
             {
-                double[] _dubs = Array.ConvertAll(inputArray[x], double.Parse);
-
-                for (int y = 1; y < noChannels; y++)
+                // remove time stamp and header for ease of use, sort into columns instead of rows
+                for (int x = 1; x < dataLength - 1; x++)
                 {
-                    rawData[y - 1][x - 1] = _dubs[y];
+                    double[] _dubs = Array.ConvertAll(inputArray[x], double.Parse);
+
+                    for (int y = 1; y < noChannels; y++)
+                    {
+                        currData[y - 1][x - 1] = _dubs[y];
+                    }
                 }
             }
+            catch (FormatException f)
+            {
+                Console.WriteLine("Error thrown: " + f.Message);
+                Console.WriteLine("Please check the file contents for errors");
+                return null;
+            }
+
+            return currData;
         }
 
 
@@ -142,50 +155,48 @@ namespace MyoStream
         }
 
 
+
+
         public void PlotEMGData(string session, string directory)
         {
-            int noChannels = 8;
             int maxDecompLev = 5;
+            int noChannels = 8;
 
-            // prepare arrays for decomposition data
-            double[][][] allDWT = new double[maxDecompLev][][];
-            double[][] allDetails = new double[noChannels][];
-            double[][] allApproxs = new double[noChannels][];
+            // prepare arrays for dwt data
+            double[][][] allRecData = new double[maxDecompLev][][];
+            double[][][] allDetails = new double[maxDecompLev][][];
+            double[][][] allApproxs = new double[maxDecompLev][][];
 
             for (int d = 0; d < maxDecompLev; d++)
             {
-                allDWT[d] = new double[noChannels][];
+                allRecData[d] = new double[noChannels][];
+                allDetails[d] = new double[noChannels][];
+                allApproxs[d] = new double[noChannels][];
+
                 for (int ch = 0; ch < noChannels; ch++)
                 {
-                    allDWT[d][ch] = new double[currentDataLength];
+                    allRecData[d][ch] = new double[currentDataLength];
+                    allDetails[d][ch] = new double[currentDataLength];
+                    allApproxs[d][ch] = new double[currentDataLength];
                 }
-            }
-            for (int ch = 0; ch < noChannels; ch++)
-            {
-                allDetails[ch] = new double[detailsAllLevels.Length];
-                allApproxs[ch] = new double[approxAllLevels.Length];
             }
 
 
             // perform DWT
-            Plotter myPlotter = new Plotter();
-
             for (int x = 0; x < noChannels; x++)
             {
-                double[][] DWTData = Task.Run(() => PerformDWThere(rawData[x], currentWavelet, maxDecompLev)).Result;
+                double[][] DWTData = Task.Run(() => PerformDWT(rawData[x], currentWavelet, maxDecompLev)).Result;
 
                 for (int y = 0; y < maxDecompLev; y++)
                 {
-                    allDWT[y][x] = DWTData[y];
+                    allRecData[y][x] = DWTData[y];
+                    allApproxs[y][x] = approxData[y];
+                    allDetails[y][x] = detailData[y];
                 }
-
-                allDetails[x] = detailsAllLevels;
-                Array.Resize(ref detailsAllLevels, 0);
-                allApproxs[x] = approxAllLevels;
-                Array.Resize(ref approxAllLevels, 0);
             }
 
-            myPlotter.BuildDWTChart(session, directory + "/Images", currentWavelet.Name, maxDecompLev, rawData, allDetails, allApproxs, allDWT);
+            Plotter myPlotter = new Plotter();
+            myPlotter.BuildDWTChart(session, directory + "/Images", currentWavelet.Name, maxDecompLev, rawData, allDetails, allApproxs, allRecData);
         }
 
         public void PlotIMUData(string session, string directory)
@@ -224,7 +235,7 @@ namespace MyoStream
         }
 
 
-        public void PrepareDataArrays(int dataLength)
+        public void SizeDataArrays(int dataLength)
         {
             Task<double[]>[] _tasks = new Task<double[]>[8];
             int n = 0;
@@ -243,15 +254,13 @@ namespace MyoStream
             }
 
             Console.WriteLine("max n value used: " + n);
-            int noPoints = n;
 
-            int numberOfUnusedDataPoint = currentDataLength - noPoints;
+            int numberOfUnusedDataPoint = currentDataLength - n;
             Console.WriteLine(numberOfUnusedDataPoint + " data points were trimmed from this data set");
 
-            for (int z = 0; z < 9; z++)
+            for (int z = 0; z < numChannels; z++)
             {
-                clnData[z] = new double[noPoints];
-
+                clnData[z] = new double[n];
             }
         }
 
@@ -279,17 +288,16 @@ namespace MyoStream
                 sWriter.Flush();
             }
         }
-        double[] approxAllLevels = new double[0];
-        double[] detailsAllLevels = new double[0];
 
-        List<DecompositionLevel> dwt = new List<DecompositionLevel>();
 
-        public async Task<double[][]> PerformDWThere(double[] inputData, MotherWavelet inputWavelet, int maxDecompLevel)
+        public async Task<double[][]> PerformDWT(double[] inputData, MotherWavelet inputWavelet, int maxDecompLevel)
         {
             Signal signal = new Signal(inputData);
             MotherWavelet wavelet = inputWavelet;
 
             double[][] reconstrData = new double[maxDecompLevel][];
+            detailData = new double[maxDecompLevel][];
+            approxData = new double[maxDecompLevel][];
 
             for (int r = 1; r <= maxDecompLevel; r++)
             {
@@ -298,20 +306,14 @@ namespace MyoStream
                 reconstrData[r - 1] = new double[signal.SamplesCount];
                 reconstrData[r - 1] = DWT.ExecuteIDWT(dwt, wavelet, r, WaveletStudio.Functions.ConvolutionModeEnum.Normal);
 
+                detailData[r - 1] = new double[signal.SamplesCount];
+                approxData[r - 1] = new double[signal.SamplesCount];
             }
 
-            foreach (DecompositionLevel d in dwt)
+            for (int d = 0; d < dwt.Count; d++)
             {
-                int oldSizeA = approxAllLevels.Length;
-                int newSizeA = oldSizeA + d.Approximation.Length;
-                Array.Resize(ref approxAllLevels, newSizeA);
-                Array.Copy(d.Approximation, 0, approxAllLevels, oldSizeA, d.Approximation.Length);
-
-                int oldSizeD = detailsAllLevels.Length;
-                int newSizeD = oldSizeD + d.Details.Length;
-                Array.Resize(ref detailsAllLevels, newSizeD);
-                Array.Copy(d.Details, 0, detailsAllLevels, oldSizeA, d.Details.Length);
-
+                approxData[d] = dwt[d].Approximation;
+                detailData[d] = dwt[d].Details;
             }
 
             return reconstrData;

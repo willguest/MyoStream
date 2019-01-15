@@ -27,7 +27,8 @@ namespace MyoStream
 
         private string deviceFilterString = "Myo";                                                  // Search string for devices
         public int _tick = 100;                                                                     // millisecond interval between updates
-        private String directory = "C:/Users/16102434/Desktop/Current Work/Myo/testData";           // directory to pick up files for batch processing
+        //private String directory = Environment.CurrentDirectory  + "/testData";                     // directory to store records
+        private string directory = "C:/Users/16102434/Desktop/Current Work/Myo/testData";
 
         #region Variables
 
@@ -133,28 +134,67 @@ namespace MyoStream
         public void RefreshUI()
         {
             RefreshDeviceStatus();
-            //SetDataBindings();
+            SetDataBindings();
+        }
+
+
+        private void RefreshDeviceStatus()
+        {
+            MyoArmband foundLeft = connectedMyos.Where(g => (g.Name == "MyoL")).FirstOrDefault();
+            MyoArmband foundRight = connectedMyos.Where(g => (g.Name == "MyoR")).FirstOrDefault();
+            readyMyos = 0;
+
+            Dispatcher.Invoke(() =>
+            {
+                if (foundLeft != null)
+                {
+                    txtDevConnStatLt.Text = foundLeft.DevConnStat.ToString();
+                    txtDevLeftRecords.Text = foundLeft.myDataHandler.totalEMGRecords + ", " + foundLeft.myDataHandler.totalIMURecords;
+                    if (foundLeft.DevConnStat == BluetoothConnectionStatus.Connected)
+                    {
+                        readyMyos++;
+                        btnStartStream.IsEnabled = true;
+                    }
+                }
+                if (foundRight != null)
+                {
+                    txtDevConnStatRt.Text = foundRight.DevConnStat.ToString();
+                    txtDevRightRecords.Text = foundRight.myDataHandler.totalEMGRecords + ", " + foundRight.myDataHandler.totalIMURecords;
+                    if (foundRight.DevConnStat == BluetoothConnectionStatus.Connected)
+                    {
+                        readyMyos++;
+                        btnStartStream.IsEnabled = true;
+                    }
+                }
+                if (readyMyos == 2)
+                {
+                    Console.WriteLine($"Two Myos are connected  8-]");
+                    //btnStartStream.IsEnabled = true;
+                }
+            });
         }
 
         private void SetDataBindings()
         {
-            string[] files;
-            files = Directory.GetFiles(directory, "*", SearchOption.AllDirectories).Select(x => Path.GetFileNameWithoutExtension(x)).ToArray();
-            cmbFileList.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = files });
-
+            Dispatcher.Invoke(() =>
+            {
+                string[] files;
+                files = Directory.GetFiles(directory, "*.csv", SearchOption.TopDirectoryOnly).Select(x => Path.GetFileNameWithoutExtension(x)).ToArray();
+                cmbFileList.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = files });
+            });
         }
 
         
         private void LoadDataFile()
         {
             string filename = cmbFileList.Text;
-            
-            _bp = new BatchProcessor();
 
             // Load file (getting data length)
+            _bp = new BatchProcessor();
             int noRecords = _bp.LoadFileFromDir(directory, filename);
             txtLoadResult.Text = noRecords + " records";
 
+            // interpret hyphen to separate session name from id
             int endsessId = filename.IndexOf("-");
             if (endsessId > 0)
             {
@@ -173,7 +213,9 @@ namespace MyoStream
                 _bp.IdentifyWavelets();
                 cmbWavelets.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = _bp.WaveletNames });
                 cmbWavelets.SelectionChanged += _bp.SelectWavelet;
-                _bp.PrepareDataArrays(noRecords);
+
+                // load all the data into the dwt batch processor
+                _bp.SizeDataArrays(noRecords);
 
             }
             else if (filename.Contains("IMU"))
@@ -563,9 +605,11 @@ namespace MyoStream
                 }
             }
 
-            btnStopStream.Visibility = System.Windows.Visibility.Visible;
-            btnStartStream.Visibility = System.Windows.Visibility.Hidden;
-            
+            Dispatcher.Invoke(() =>
+            {
+                btnStopStream.Visibility = System.Windows.Visibility.Visible;
+                btnStartStream.Visibility = System.Windows.Visibility.Hidden;
+            });
 
         }
 
@@ -592,8 +636,12 @@ namespace MyoStream
                 }
             }
 
-            btnStopStream.Visibility = System.Windows.Visibility.Hidden;
-            btnStartStream.Visibility = System.Windows.Visibility.Visible;
+            Dispatcher.Invoke(() =>
+            {
+                btnStopStream.Visibility = System.Windows.Visibility.Hidden;
+                btnStartStream.Visibility = System.Windows.Visibility.Visible;
+            });
+            
 
             RefreshUI();
             
@@ -649,41 +697,6 @@ namespace MyoStream
 
 
 
-        private void RefreshDeviceStatus()
-        {
-            MyoArmband foundLeft = connectedMyos.Where(g => (g.Name == "MyoL")).FirstOrDefault();
-            MyoArmband foundRight = connectedMyos.Where(g => (g.Name == "MyoR")).FirstOrDefault();
-            readyMyos = 0;
-
-            Dispatcher.Invoke(() =>
-            {
-                if (foundLeft != null)
-                {
-                    txtDevConnStatLt.Text = foundLeft.DevConnStat.ToString();
-                    txtDevLeftRecords.Text = foundLeft.myDataHandler.totalEMGRecords + ", " + foundLeft.myDataHandler.totalIMURecords;
-                    if (foundLeft.DevConnStat == BluetoothConnectionStatus.Connected)
-                    {
-                        readyMyos++;
-                        btnStartStream.IsEnabled = true;
-                    }
-                }
-                if (foundRight != null)
-                {
-                    txtDevConnStatRt.Text = foundRight.DevConnStat.ToString();
-                    txtDevRightRecords.Text = foundRight.myDataHandler.totalEMGRecords + ", " + foundRight.myDataHandler.totalIMURecords;
-                    if (foundRight.DevConnStat == BluetoothConnectionStatus.Connected)
-                    {
-                        readyMyos++;
-                        btnStartStream.IsEnabled = true;
-                    }
-                }
-                if (readyMyos == 2)
-                {
-                    Console.WriteLine($"Two Myos are connected  8-]");
-                    //btnStartStream.IsEnabled = true;
-                }
-            });
-        }
 
 
         private void ResetDevices()
@@ -754,7 +767,7 @@ namespace MyoStream
                                 }
                             });
 
-                            if (connectedMyos.Count <= 2) { ConnectToArmband(myoId); }
+                            if (connectedMyos.Count == 1 || connectedMyos.Count == 2) { ConnectToArmband(myoId); }
                         }
                     }
                 });
