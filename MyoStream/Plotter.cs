@@ -143,7 +143,7 @@ namespace MyoStream
 
             chart.ChartAreas.Add(new ChartArea("1") { Position = new ElementPosition(25, 52, 25, 23) });
             chart.ChartAreas[1].AxisX.Title = "DWT Approximations for level 1";
-            chart.ChartAreas[1].AxisY.Maximum = 2;
+            chart.ChartAreas[1].AxisY.Maximum = 1.5;
             chart.ChartAreas[1].AxisY.Minimum = 0;
 
             for (int ch = 0; ch < details[0].Length; ch++)
@@ -163,14 +163,14 @@ namespace MyoStream
                 chart.Series.Add(sa1);
             }
 
-            chart.ChartAreas.Add(new ChartArea("2") { Position = new ElementPosition(0, 73, 25, 23) });
+            chart.ChartAreas.Add(new ChartArea("2") { Position = new ElementPosition(0, 75, 25, 23) });
             chart.ChartAreas[2].AxisX.Title = "Decomposition Details for for level 2";
             chart.ChartAreas[2].AxisY.Maximum = 0.5;
             chart.ChartAreas[2].AxisY.Minimum = -0.5;
 
-            chart.ChartAreas.Add(new ChartArea("3") { Position = new ElementPosition(25, 73, 25, 23) });
+            chart.ChartAreas.Add(new ChartArea("3") { Position = new ElementPosition(25, 75, 25, 23) });
             chart.ChartAreas[3].AxisX.Title = "DWT Approximations for level 2";
-            chart.ChartAreas[3].AxisY.Maximum = 2;
+            chart.ChartAreas[3].AxisY.Maximum = 1.5;
             chart.ChartAreas[3].AxisY.Minimum = 0;
 
             for (int ch = 0; ch < details[1].Length; ch++)

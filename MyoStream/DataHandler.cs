@@ -346,7 +346,9 @@ namespace MyoStream
         #region Data Wrangling
 
         private int flagCounter = 0;
-        private int flagTrigger = 50;
+        private int flagThresholdLevelOne = 50;
+        private int flagThresholdLevelTwo = 35;
+        
         private bool isRecording = false;
 
         private Task WrangleEMGData(sbyte[][] rawData) // receives a 9x2 array of EMG data, sends [segment]x9 array to streamwriter, when full
@@ -372,18 +374,25 @@ namespace MyoStream
                 }
             }
 
+
+
             // only write out when we hit the segment size 
             if (cnt + 2 == segment)
             {
                 Console.WriteLine("lines with movement: " + flagCounter);
 
-                if (flagCounter >= flagTrigger)
+                if (flagCounter >= flagThresholdLevelOne)
                 {
                     Task.Run(() => StoreEmgData(rawFlot)).ConfigureAwait(true);
                     isRecording = true;
                 }
 
-                else if (flagCounter < flagTrigger && isRecording)
+                else if (flagCounter > flagThresholdLevelTwo && isRecording)
+                {
+                    Task.Run(() => StoreEmgData(rawFlot)).ConfigureAwait(true);
+                }
+
+                else if (flagCounter < flagThresholdLevelTwo && isRecording)
                 {
                     isRecording = false;
                     Prep_EMG_Datastream(thisDeviceName, thisSessionId);
