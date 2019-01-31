@@ -603,6 +603,10 @@ namespace MyoStream
                     Write(myo.cmdCharac, startStreamCommand);
                     dispatcherTimer.Start();
                 }
+                else
+                {
+                    Console.WriteLine("Error send start command to myo");
+                }
             }
 
             Dispatcher.Invoke(() =>
@@ -623,8 +627,12 @@ namespace MyoStream
                 {
                     Write(myo.cmdCharac, stopStreamCommand);
                     dispatcherTimer.Stop();
-                    
                 }
+                else
+                {
+                    Console.WriteLine("Error send stop command to myo");
+                }
+
                 if (myo.myDataHandler != null)
                 {
                     myo.myDataHandler.IsRunning = false;

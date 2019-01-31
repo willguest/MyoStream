@@ -29,7 +29,7 @@ namespace MyoStream
     public class DataHandler
     {
         public bool IsRunning { get; set; }
-        public int segment = 32;
+        public int segment = 16;
 
         private string thisDeviceName = "";
         private string thisSessionId = "";
@@ -346,8 +346,9 @@ namespace MyoStream
         #region Data Wrangling
 
         private int flagCounter = 0;
-        private int flagThresholdLevelOne = 50;
-        private int flagThresholdLevelTwo = 35;
+        private float proportionChangeTrigger = 0.11f;
+        private int flagThresholdLevelOne = 30;
+        private int flagThresholdLevelTwo = 20;
         
         private bool isRecording = false;
 
@@ -364,22 +365,21 @@ namespace MyoStream
 
             for (int x = 1; x < 9; x++)
             {
+                rawFlot[x][cnt] = (rawData[0][x - 1] / 128.0f);
+                rawFlot[x][cnt + 1] = (rawData[1][x - 1] / 180.0f);
 
-                rawFlot[x][cnt] = (rawData[0][x - 1] + 128.0f) / 256.0f;
-                rawFlot[x][cnt + 1] = (rawData[1][x - 1] + 128.0f) / 256.0f;
-
-                if (Math.Abs(rawFlot[x][cnt + 1] - rawFlot[x][cnt]) > 0.11f)
+                if (Math.Abs(rawFlot[x][cnt + 1] - rawFlot[x][cnt]) > proportionChangeTrigger)
                 {
                     flagCounter++;
                 }
             }
 
 
-
             // only write out when we hit the segment size 
             if (cnt + 2 == segment)
             {
-                Console.WriteLine("lines with movement: " + flagCounter);
+                Console.WriteLine(proportionChangeTrigger + " percent change occurences: " + flagCounter);
+
 
                 if (flagCounter >= flagThresholdLevelOne)
                 {
@@ -396,6 +396,7 @@ namespace MyoStream
                 {
                     isRecording = false;
                     Prep_EMG_Datastream(thisDeviceName, thisSessionId);
+                    segment = 16;
                 }
 
                 cnt = 0;

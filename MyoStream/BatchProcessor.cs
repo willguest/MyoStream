@@ -144,7 +144,7 @@ namespace MyoStream
             return currData;
         }
 
-
+        /*
         public void StoreData()
         {
             Prep_Datastream();
@@ -153,7 +153,7 @@ namespace MyoStream
             sWriter.Dispose();
             sWriter = null;
         }
-
+        */
 
 
 
@@ -206,6 +206,62 @@ namespace MyoStream
         }
 
 
+
+
+        public void SizeDataArrays(int dataLength)
+        {
+            Task<double[]>[] _tasks = new Task<double[]>[8];
+            int n = 0;
+
+            if (currentDataLength < 1024)
+            {
+                n = 4;
+                while (n + 4 <= currentDataLength)
+                { n += 4; }
+            }
+            else
+            {
+                n = 1024;
+                while (n + 256 <= currentDataLength)
+                { n += 256; }
+            }
+
+            Console.WriteLine("max n value used: " + n);
+
+            int numberOfUnusedDataPoint = currentDataLength - n;
+            Console.WriteLine(numberOfUnusedDataPoint + " data points were trimmed from this data set");
+
+            for (int z = 0; z < numChannels; z++)
+            {
+                clnData[z] = new double[n];
+            }
+        }
+
+        /*
+        private async Task StoreEMGData(int noRecords, double[][] rawEMG, double[][] resEMG)
+        {
+
+            if (sWriter.BaseStream != null)
+            {
+                // use only complete data (truncate)
+                for (int j = 0; j < noRecords; j++)
+                {
+                    for (int k = 0; k < 9; k++)
+                    {
+                        //ciao
+                        startEMG[k] = rawEMG[k][j];
+                        cleanEMG[k] = resEMG[k][j];
+                    }
+
+                    string atfrst = string.Join(",", startEMG);
+                    string atlast = string.Join(",", cleanEMG);
+
+                    sWriter.WriteLine(atfrst + "," + atlast);
+                }
+                sWriter.Flush();
+            }
+        }
+
         private void Prep_Datastream()
         {
             bool newFile = false;
@@ -233,62 +289,7 @@ namespace MyoStream
             sWriter.AutoFlush = true;
 
         }
-
-
-        public void SizeDataArrays(int dataLength)
-        {
-            Task<double[]>[] _tasks = new Task<double[]>[8];
-            int n = 0;
-
-            if (currentDataLength < 1024)
-            {
-                n = 2;
-                while (n + 2 <= currentDataLength)
-                { n += 2; }
-            }
-            else
-            {
-                n = 1024;
-                while (n + 256 <= currentDataLength)
-                { n += 256; }
-            }
-
-            Console.WriteLine("max n value used: " + n);
-
-            int numberOfUnusedDataPoint = currentDataLength - n;
-            Console.WriteLine(numberOfUnusedDataPoint + " data points were trimmed from this data set");
-
-            for (int z = 0; z < numChannels; z++)
-            {
-                clnData[z] = new double[n];
-            }
-        }
-
-
-        private async Task StoreEMGData(int noRecords, double[][] rawEMG, double[][] resEMG)
-        {
-
-            if (sWriter.BaseStream != null)
-            {
-                // use only complete data (truncate)
-                for (int j = 0; j < noRecords; j++)
-                {
-                    for (int k = 0; k < 9; k++)
-                    {
-                        //ciao
-                        startEMG[k] = rawEMG[k][j];
-                        cleanEMG[k] = resEMG[k][j];
-                    }
-
-                    string atfrst = string.Join(",", startEMG);
-                    string atlast = string.Join(",", cleanEMG);
-
-                    sWriter.WriteLine(atfrst + "," + atlast);
-                }
-                sWriter.Flush();
-            }
-        }
-
+        */
 
         public async Task<double[][]> PerformDWT(double[] inputData, MotherWavelet inputWavelet, int maxDecompLevel)
         {
