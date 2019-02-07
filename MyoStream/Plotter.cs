@@ -119,7 +119,7 @@ namespace MyoStream
         }
 
 
-        public void BuildDWTChart(string session, string dir, string waveletUsed, int maxDecompLevel, double[][] signal, double[][][] details, double[][][] approxs, double[][][] ReconstructedData)
+        public void BuildDWTChart(string session, string dir, string waveletUsed, int maxDecompLevel, double[][] signal, double[][][] details, double[][][] approxs, double[][][] ReconstructedData, bool showGraph = true)
         {
 
             Color[] myPalette = new Color[] { Color.Green, Color.Red, Color.DarkBlue, Color.Peru, Color.Pink, Color.Purple, Color.MediumAquamarine, Color.YellowGreen };
@@ -137,20 +137,24 @@ namespace MyoStream
             chart.Titles.Add(title);
 
             chart.ChartAreas.Add(new ChartArea("0") { Position = new ElementPosition(0, 52, 25, 23) });
-            chart.ChartAreas[0].AxisX.Title = "Decomposition Details for for level 1";
-            chart.ChartAreas[0].AxisY.Maximum = 1;
-            chart.ChartAreas[0].AxisY.Minimum = -1;
+            chart.ChartAreas[0].AxisX.Title = "Decomposition Details (Sqrd), Lev.1";
+            chart.ChartAreas[0].AxisY.Maximum = 1.5;
+            chart.ChartAreas[0].AxisY.Minimum = 0;
 
             chart.ChartAreas.Add(new ChartArea("1") { Position = new ElementPosition(25, 52, 25, 23) });
             chart.ChartAreas[1].AxisX.Title = "DWT Approximations (Sqrd), Lev.1";
-            //chart.ChartAreas[1].AxisY.Maximum = 1;
+            chart.ChartAreas[1].AxisY.Maximum = 1.5;
             chart.ChartAreas[1].AxisY.Minimum = 0;
 
             for (int ch = 0; ch < details[0].Length; ch++)
             {
+                double[] newArray0 = new double[details[0][ch].Length];
+                for (int x = 0; x < newArray0.Length; x++)
+                { newArray0[x] = details[0][ch][x] * details[0][ch][x]; }
+
                 Series sd1 = new Series();
                 sd1.ChartType = SeriesChartType.Line;
-                sd1.Points.DataBindY(details[0][ch]);
+                sd1.Points.DataBindY(newArray0);
                 sd1.ChartArea = "0";
                 sd1.Color = myPalette[ch];
                 chart.Series.Add(sd1);
@@ -168,20 +172,24 @@ namespace MyoStream
             }
 
             chart.ChartAreas.Add(new ChartArea("2") { Position = new ElementPosition(0, 75, 25, 23) });
-            chart.ChartAreas[2].AxisX.Title = "Decomposition Details for for level 2";
-            chart.ChartAreas[2].AxisY.Maximum = 1;
-            chart.ChartAreas[2].AxisY.Minimum = -1;
+            chart.ChartAreas[2].AxisX.Title = "Decomposition Details (Sqrd), Lev.2";
+            chart.ChartAreas[2].AxisY.Maximum = 1.5;
+            chart.ChartAreas[2].AxisY.Minimum = 0;
 
             chart.ChartAreas.Add(new ChartArea("3") { Position = new ElementPosition(25, 75, 25, 23) });
             chart.ChartAreas[3].AxisX.Title = "DWT Approximations (Sqrd), Level 2";
-            //chart.ChartAreas[3].AxisY.Maximum = 1;
+            chart.ChartAreas[3].AxisY.Maximum = 1.5;
             chart.ChartAreas[3].AxisY.Minimum = 0;
 
             for (int ch = 0; ch < details[1].Length; ch++)
             {
+                double[] newArray1 = new double[details[1][ch].Length];
+                for (int x = 0; x < newArray1.Length; x++)
+                { newArray1[x] = details[1][ch][x] * details[1][ch][x]; }
+
                 Series sd2 = new Series();
-                sd2.ChartType = SeriesChartType.FastLine;
-                sd2.Points.DataBindY(details[1][ch]);
+                sd2.ChartType = SeriesChartType.Line;
+                sd2.Points.DataBindY(newArray1);
                 sd2.ChartArea = "2";
                 sd2.Color = myPalette[ch];
                 chart.Series.Add(sd2);
@@ -189,7 +197,6 @@ namespace MyoStream
                 double[] newArray2 = new double[approxs[1][ch].Length];
                 for (int x = 0; x < newArray2.Length; x++)
                 { newArray2[x] = approxs[1][ch][x] * approxs[1][ch][x]; }
-                
 
                 Series sa2 = new Series();
                 sa2.ChartType = SeriesChartType.Line;
@@ -222,15 +229,15 @@ namespace MyoStream
             for (int l = 1; l < maxDecompLevel; l++)
             {
                 chart.ChartAreas.Add(new ChartArea("r" + l) { Position = new ElementPosition(50, ((l - 1) * rP) + offset, 50, rP - offset) });
-                chart.ChartAreas[4 + l].AxisX.Title = "Approximations, from level " + (l + 0);
-                //chart.ChartAreas[4 + l].AxisY.Maximum = 1.5;
-                //chart.ChartAreas[4 + l].AxisY.Minimum = (l * 0.25);
+                chart.ChartAreas[4 + l].AxisX.Title = "Reconstruction, from level " + (l + 0);
+                chart.ChartAreas[4 + l].AxisY.Maximum = 1;
+                chart.ChartAreas[4 + l].AxisY.Minimum = -1;
 
                 for (int ch = 0; ch < ReconstructedData[l].Length; ch++)
                 {
                     Series series = new Series();
                     series.ChartType = SeriesChartType.FastLine;
-                    series.Points.DataBindY(approxs[l-1][ch]); 
+                    series.Points.DataBindY(ReconstructedData[l - 1][ch]); 
                     series.ChartArea = "r" + l;
                     series.Color = myPalette[ch];
                     chart.Series.Add(series);
@@ -240,7 +247,9 @@ namespace MyoStream
             // Save and display the chart
             string savePath = dir + "/" + session + "_ EMG DWT using " + waveletUsed + " wavelet.png";
             chart.SaveImage(savePath, ChartImageFormat.Png);
-            NMathChart.Show(chart);  
+
+            if (showGraph)
+            { NMathChart.Show(chart); }
         }
 
 

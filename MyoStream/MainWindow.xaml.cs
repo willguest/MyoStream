@@ -60,7 +60,8 @@ namespace MyoStream
         private DispatcherTimer dispatcherTimer = new DispatcherTimer();
         private double captureDuration = 0;
 
-
+        private List<string> topLeveLWavelets = new List<string>();
+        private string[] files;
 
         // Data objects for batch processing
 
@@ -81,6 +82,9 @@ namespace MyoStream
 
         private void ShowCharts_Click(object sender, EventArgs e)
         { ShowCharts(); }
+
+        private void ShowAllTheCharts_Click(object sender, EventArgs e)
+        { ShowAllCharts(); }
 
         private void Reset_Right_Click(object sender, EventArgs e)
         { ResetDevices(); }
@@ -178,7 +182,7 @@ namespace MyoStream
         {
             Dispatcher.Invoke(() =>
             {
-                string[] files;
+                //string[] files;
                 files = Directory.GetFiles(directory, "*.csv", SearchOption.TopDirectoryOnly).Select(x => Path.GetFileNameWithoutExtension(x)).ToArray();
                 cmbFileList.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = files });
             });
@@ -211,11 +215,13 @@ namespace MyoStream
                 cmbWavelets.SelectionChanged -= _bp.SelectWavelet;
                 cmbWavelets.SelectedIndex = -1;
                 _bp.IdentifyWavelets();
-                cmbWavelets.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = _bp.WaveletNames });
+                topLeveLWavelets = _bp.WaveletNames;
+                cmbWavelets.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = topLeveLWavelets });
                 cmbWavelets.SelectionChanged += _bp.SelectWavelet;
 
                 // load all the data into the dwt batch processor
                 _bp.SizeDataArrays(noRecords);
+                _bp.chosenWavelet = "sym4";
 
             }
             else if (filename.Contains("IMU"))
@@ -228,7 +234,26 @@ namespace MyoStream
         {
             if (_bp != null)
             {
-                _bp.PlotEMGData(SessionId, directory);
+                _bp.PlotEMGData(SessionId, directory, true);
+            }
+        }
+
+
+        private void ShowAllCharts()
+        {
+            //string[] files;
+            //files = Directory.GetFiles(directory, "*.csv", SearchOption.TopDirectoryOnly).Select(x => Path.GetFileNameWithoutExtension(x)).ToArray();
+            Console.WriteLine("files length: " + files.Length);
+
+            foreach (string s in files)
+            {
+                cmbFileList.Text = s;
+                LoadDataFile();
+
+                if (_bp != null)
+                {
+                    _bp.PlotEMGData(SessionId, directory, false);
+                }
             }
         }
 

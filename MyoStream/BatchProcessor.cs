@@ -14,6 +14,7 @@ namespace MyoStream
     {
         private string currentDirectory = "";
         private string currentFilename = "";
+        string filePath = "";
 
         private int numChannels = 0;
         private int currentDataLength = 0;
@@ -30,13 +31,9 @@ namespace MyoStream
         private StreamWriter sWriter;
         public List<string> WaveletNames = new List<string>();
         public List<object[]> ListOfWavelets = new List<object[]>();
-        public int SelectedWaveletIndex { get; set; }
-        private MotherWavelet currentWavelet;
 
-        List<double[]> approxFirst = new List<double[]>();
-        List<double[]> approxSecnd = new List<double[]>();
-        List<double[]> detailFirst = new List<double[]>();
-        List<double[]> detailSecnd = new List<double[]>();
+        private MotherWavelet currentWavelet;
+        public string chosenWavelet;
 
         List<DecompositionLevel> dwt = new List<DecompositionLevel>();
 
@@ -60,6 +57,7 @@ namespace MyoStream
             if (waveName != null)
             {
                 currentWavelet = CommonMotherWavelets.GetWaveletFromName(waveName);
+                chosenWavelet = currentWavelet.Name;
             }
         }
 
@@ -71,7 +69,7 @@ namespace MyoStream
 
             currentDirectory = directory;
             currentFilename = filename + ".csv";
-            string filePath = directory + "/" + currentFilename;
+            filePath = directory + "/" + currentFilename;
 
             try
             {
@@ -79,9 +77,6 @@ namespace MyoStream
                 var titles = contents[0];
                 var csv = from line in contents
                           select line.Split(',').ToArray();
-
-                //if (filename.Contains("EMG")) { numChannels = 8; }
-                //if (filename.Contains("IMU")) { numChannels = 10; }
 
                 numChannels = csv.First().Count();
                 currentDataLength = csv.Count() - 1;
@@ -157,7 +152,7 @@ namespace MyoStream
 
 
 
-        public void PlotEMGData(string session, string directory)
+        public void PlotEMGData(string session, string directory, bool showGraph = true)
         {
             int maxDecompLev = 5;
             int noChannels = 8;
@@ -181,6 +176,11 @@ namespace MyoStream
                 }
             }
 
+            if (chosenWavelet == null)
+            {
+                currentWavelet = CommonMotherWavelets.GetWaveletFromName(chosenWavelet);
+            }
+
 
             // perform DWT
             for (int x = 0; x < noChannels; x++)
@@ -195,9 +195,16 @@ namespace MyoStream
                 }
             }
 
+            // Feature Extraction Goes Here
+
+
+
+
             Plotter myPlotter = new Plotter();
-            myPlotter.BuildDWTChart(session, directory + "/Images", currentWavelet.Name, maxDecompLev, rawData, allDetails, allApproxs, allRecData);
+            myPlotter.BuildDWTChart(session, directory + "/Images", currentWavelet.Name, maxDecompLev, rawData, allDetails, allApproxs, allRecData, showGraph);
         }
+
+
 
         public void PlotIMUData(string session, string directory)
         {
@@ -305,7 +312,7 @@ namespace MyoStream
                 dwt = DWT.ExecuteDWT(signal, wavelet, r, SignalExtension.ExtensionMode.SymmetricWholePoint, WaveletStudio.Functions.ConvolutionModeEnum.Normal);
 
                 reconstrData[r - 1] = new double[signal.SamplesCount];
-                reconstrData[r - 1] = DWT.ExecuteIDWT(dwt, wavelet, r, WaveletStudio.Functions.ConvolutionModeEnum.Normal);
+                reconstrData[r - 1] = DWT.ExecuteIDWT(dwt, wavelet, dwt.Count, WaveletStudio.Functions.ConvolutionModeEnum.Normal);
 
                 detailData[r - 1] = new double[signal.SamplesCount];
                 approxData[r - 1] = new double[signal.SamplesCount];

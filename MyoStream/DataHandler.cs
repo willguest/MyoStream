@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Media.Media3D;
@@ -29,7 +30,7 @@ namespace MyoStream
     public class DataHandler
     {
         public bool IsRunning { get; set; }
-        public int segment = 16;
+        public int segment = 32;
 
         private string thisDeviceName = "";
         private string thisSessionId = "";
@@ -165,7 +166,8 @@ namespace MyoStream
             long nowTicks = DateTime.UtcNow.Ticks;
             IMUString = nowTicks + "," + ortData + "," + accData + "," + gyrData;
 
-            Task.Run (async () => await StoreIMUData(IMUString).ConfigureAwait(true));
+            if (isRecording)
+            { Task.Run(async () => await StoreIMUData(IMUString).ConfigureAwait(true)); }
 
             /*
             orientationX = _IMUdata[0][0];
@@ -238,7 +240,7 @@ namespace MyoStream
             thisDeviceName = deviceName;
             thisSessionId = sessionId;
 
-            string localFolder = "C:/Users/16102434/Desktop/Current Work/Myo/testData";  //Environment.CurrentDirectory;
+            string localFolder = "C:/Users/16102434/Desktop/Current Work/Myo/testData";  //Environment.CurrentDirectory; //firebase...
             string fileName = (sessionId + "_" + date + "_" + sessionNo.ToString("D3") + "-" + deviceName + "_EMG_Data.csv");
 
             string headers = @"Timestamp 0, raw_EMG_0, raw_EMG_1, raw_EMG_2, raw_EMG_3, raw_EMG_4, raw_EMG_5, raw_EMG_6, raw_EMG_7";
@@ -345,10 +347,11 @@ namespace MyoStream
 
         #region Data Wrangling
 
-        private int flagCounter = 0;
+        private int pulseCounter = 0;
+        private float waveformLength = 0;
         private float proportionChangeTrigger = 0.11f;
-        private int flagThresholdLevelOne = 30;
-        private int flagThresholdLevelTwo = 20;
+        private int flagThresholdLevelOne = 40;
+        private int flagThresholdLevelTwo = 30;
         
         private bool isRecording = false;
 
@@ -368,9 +371,12 @@ namespace MyoStream
                 rawFlot[x][cnt] = (rawData[0][x - 1] / 128.0f);
                 rawFlot[x][cnt + 1] = (rawData[1][x - 1] / 180.0f);
 
-                if (Math.Abs(rawFlot[x][cnt + 1] - rawFlot[x][cnt]) > proportionChangeTrigger)
+                float range = Math.Abs(rawFlot[x][cnt + 1] - rawFlot[x][cnt]);
+
+                if (range > proportionChangeTrigger)
                 {
-                    flagCounter++;
+                    pulseCounter++;
+                    waveformLength += range;
                 }
             }
 
@@ -378,29 +384,30 @@ namespace MyoStream
             // only write out when we hit the segment size 
             if (cnt + 2 == segment)
             {
-                Console.WriteLine(proportionChangeTrigger + " percent change occurences: " + flagCounter);
+                Console.WriteLine(proportionChangeTrigger + " percent change occurences: " + pulseCounter);
 
 
-                if (flagCounter >= flagThresholdLevelOne)
+                if (pulseCounter >= flagThresholdLevelOne)
                 {
-                    Task.Run(() => StoreEmgData(rawFlot)).ConfigureAwait(true);
                     isRecording = true;
+                    Task.Run(() => StoreEmgData(rawFlot)).ConfigureAwait(true);     
                 }
 
-                else if (flagCounter > flagThresholdLevelTwo && isRecording)
+                else if (pulseCounter > flagThresholdLevelTwo && isRecording)
                 {
                     Task.Run(() => StoreEmgData(rawFlot)).ConfigureAwait(true);
                 }
 
-                else if (flagCounter < flagThresholdLevelTwo && isRecording)
+                else if (pulseCounter < flagThresholdLevelTwo && isRecording)
                 {
                     isRecording = false;
                     Prep_EMG_Datastream(thisDeviceName, thisSessionId);
-                    segment = 16;
+                    Prep_IMU_Datastream(thisDeviceName, thisSessionId);
                 }
 
                 cnt = 0;
-                flagCounter = 0;
+                pulseCounter = 0;
+                waveformLength = 0;
             }
             else
             {
@@ -408,6 +415,69 @@ namespace MyoStream
             }
             return null;
         }
+
+
+
+
+        List<WaveletStudio.Wavelet.DecompositionLevel> dwt = new List<WaveletStudio.Wavelet.DecompositionLevel>();
+
+        public async Task<double[]> PerformQuickDWT(double[] inputData, WaveletStudio.Wavelet.MotherWavelet inputWavelet, int maxDecompLevel)
+        {
+            WaveletStudio.Signal signal = new WaveletStudio.Signal(inputData);
+            WaveletStudio.Wavelet.MotherWavelet wavelet = inputWavelet;
+
+            double[][] detailData = new double[maxDecompLevel][];
+            double[][] approxData = new double[maxDecompLevel][];
+
+            // feature matrix
+            int noFeatures = 7; /* [index of max approx value / no. approxs, 
+                                *  rms detail level 1, rms detail level 2,
+                                *  rms approx level 1, rms approx level 2,
+                                *  left blank (WL)
+                                *  left blank (WAMP)]  <--  should be from reconstructed signal. not sure if this will slow things down
+                                */
+
+            double[] featDWT = new double[noFeatures];
+            
+
+            for (int r = 0; r < maxDecompLevel; r++)
+            {
+                double detailRmsCounter = 0;
+                double approxRmsCounter = 0;
+
+                dwt = WaveletStudio.Wavelet.DWT.ExecuteDWT(signal, wavelet, r + 1, WaveletStudio.SignalExtension.ExtensionMode.SymmetricWholePoint, WaveletStudio.Functions.ConvolutionModeEnum.Normal);
+
+                detailData[r] = new double[signal.SamplesCount];
+                approxData[r] = new double[signal.SamplesCount];
+                approxData[r] = dwt[r].Approximation;
+                detailData[r] = dwt[r].Details;
+
+
+                // get features
+                for (int n = 0; n < approxData[r].Length - 1; n++)
+                {
+                    // sum of squares
+                    detailRmsCounter = detailRmsCounter + Math.Abs(detailData[r][n] * detailData[r][n]);
+                    approxRmsCounter = approxRmsCounter + Math.Abs(approxData[r][n] * approxData[r][n]);
+
+                    double waveformLength = approxData[r][n] - approxData[r][n + 1];
+
+                    if (approxData[r][n] >= approxData[r][n + 1])
+                    {
+                        featDWT[0] = n / approxData[r].Length;
+                    }
+                }
+
+                // root-mean of sum of squares
+                featDWT[1 + r] = Math.Sqrt(detailRmsCounter / detailData[r].Length);
+                featDWT[3 + r] = Math.Sqrt(approxRmsCounter / approxData[r].Length);
+
+            }
+
+            return featDWT;
+        }
+
+
 
         /*
         private async Task MainAsyncThread(double[][] data)
@@ -489,30 +559,7 @@ namespace MyoStream
             }
         }
 
-        private async Task StoreEMGDataOld(double [][] rawEMG, double[][] resEMG)
-        {
-            if (emgWriter.BaseStream != null)
-            {
-                // use only complete data (truncate)
-                for (int j = 0; j < segment; j++)
-                {
-                    for (int k = 0; k < 9; k++)
-                    {
-                        //ciao
-                        startEMG[k] = rawEMG[k][j];
-                        cleanEMG[k] = resEMG[k][j];
-                    }
-
-                    string atfrst = string.Join(",", startEMG);
-                    string atlast = string.Join(",", cleanEMG);
-
-                    await Task.Run(() => emgWriter.WriteLineAsync(atfrst + "," + atlast));
-                    totalEMGRecords++;
-                }
-            }
-        }
-
-        
+ 
         private async Task StoreIMUData(string imuString)
         {
             if (imuWriter.BaseStream != null)
