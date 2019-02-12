@@ -209,6 +209,8 @@ namespace MyoStream
 
 
             chart.ChartAreas.Add(new ChartArea("4") { Position = new ElementPosition(0, 7, 50, 45) });
+            chart.ChartAreas[4].Area3DStyle.Enable3D = true;
+
             chart.ChartAreas[4].AxisX.Title = "Original EMG Signal";
             chart.ChartAreas[4].AxisY.Maximum = 1;
             chart.ChartAreas[4].AxisY.Minimum = -1;
@@ -216,7 +218,7 @@ namespace MyoStream
             for (int ch = 0; ch < signal.Length; ch++)
             {
                 Series ssig = new Series();
-                ssig.ChartType = SeriesChartType.FastLine;
+                ssig.ChartType = SeriesChartType.Line;
                 ssig.Points.DataBindY(signal[ch]);
                 ssig.ChartArea = "4";
                 ssig.Color = myPalette[ch];
@@ -228,7 +230,7 @@ namespace MyoStream
 
             for (int l = 1; l < maxDecompLevel; l++)
             {
-                chart.ChartAreas.Add(new ChartArea("r" + l) { Position = new ElementPosition(50, ((l - 1) * rP) + offset, 50, rP - offset) });
+                chart.ChartAreas.Add(new ChartArea("r" + l) { Position = new ElementPosition(50, ((l - 1) * rP) + offset, 25, rP - offset) });
                 chart.ChartAreas[4 + l].AxisX.Title = "Reconstruction, from level " + (l + 0);
                 chart.ChartAreas[4 + l].AxisY.Maximum = 1;
                 chart.ChartAreas[4 + l].AxisY.Minimum = -1;
@@ -236,7 +238,7 @@ namespace MyoStream
                 for (int ch = 0; ch < ReconstructedData[l].Length; ch++)
                 {
                     Series series = new Series();
-                    series.ChartType = SeriesChartType.FastLine;
+                    series.ChartType = SeriesChartType.Line;
                     series.Points.DataBindY(ReconstructedData[l - 1][ch]); 
                     series.ChartArea = "r" + l;
                     series.Color = myPalette[ch];

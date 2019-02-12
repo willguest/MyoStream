@@ -421,7 +421,7 @@ namespace MyoStream
 
         List<WaveletStudio.Wavelet.DecompositionLevel> dwt = new List<WaveletStudio.Wavelet.DecompositionLevel>();
 
-        public async Task<double[]> PerformQuickDWT(double[] inputData, WaveletStudio.Wavelet.MotherWavelet inputWavelet, int maxDecompLevel)
+        public async Task<double[,]> PerformQuickDWT(double[] inputData, WaveletStudio.Wavelet.MotherWavelet inputWavelet, int maxDecompLevel)
         {
             WaveletStudio.Signal signal = new WaveletStudio.Signal(inputData);
             WaveletStudio.Wavelet.MotherWavelet wavelet = inputWavelet;
@@ -430,20 +430,19 @@ namespace MyoStream
             double[][] approxData = new double[maxDecompLevel][];
 
             // feature matrix
-            int noFeatures = 7; /* [index of max approx value / no. approxs, 
-                                *  rms detail level 1, rms detail level 2,
-                                *  rms approx level 1, rms approx level 2,
-                                *  left blank (WL)
-                                *  left blank (WAMP)]  <--  should be from reconstructed signal. not sure if this will slow things down
-                                */
+            int noFeatures = 5; 
 
-            double[] featDWT = new double[noFeatures];
-            
+            double[,] featDWT = new double[noFeatures, (3 * maxDecompLevel) + 1];
 
             for (int r = 0; r < maxDecompLevel; r++)
             {
                 double detailRmsCounter = 0;
                 double approxRmsCounter = 0;
+
+                double waveformLength = 0;
+
+                double maxDetail = 0;
+                double maxApprox = 0;
 
                 dwt = WaveletStudio.Wavelet.DWT.ExecuteDWT(signal, wavelet, r + 1, WaveletStudio.SignalExtension.ExtensionMode.SymmetricWholePoint, WaveletStudio.Functions.ConvolutionModeEnum.Normal);
 
@@ -453,26 +452,44 @@ namespace MyoStream
                 detailData[r] = dwt[r].Details;
 
 
-                // get features
-                for (int n = 0; n < approxData[r].Length - 1; n++)
+                // feature extraction...
+
+                for (int n = 0; n < approxData[r].Length; n++)
                 {
+                    double detailSqrd = detailData[r][n] * detailData[r][n];
+                    double approxSqrd = approxData[r][n] * approxData[r][n];
+
                     // sum of squares
-                    detailRmsCounter = detailRmsCounter + Math.Abs(detailData[r][n] * detailData[r][n]);
-                    approxRmsCounter = approxRmsCounter + Math.Abs(approxData[r][n] * approxData[r][n]);
+                    detailRmsCounter = detailRmsCounter + Math.Abs(detailSqrd);
+                    approxRmsCounter = approxRmsCounter + Math.Abs(approxSqrd);
 
-                    double waveformLength = approxData[r][n] - approxData[r][n + 1];
-
-                    if (approxData[r][n] >= approxData[r][n + 1])
+                    // update maximal values
+                    if (detailSqrd > maxDetail)
                     {
-                        featDWT[0] = n / approxData[r].Length;
+                        maxDetail = detailSqrd;
+                        featDWT[0, r] = n / detailData[r].Length;
                     }
-                }
 
-                // root-mean of sum of squares
-                featDWT[1 + r] = Math.Sqrt(detailRmsCounter / detailData[r].Length);
-                featDWT[3 + r] = Math.Sqrt(approxRmsCounter / approxData[r].Length);
+                    if (approxSqrd > maxApprox)
+                    {
+                        maxApprox = approxSqrd;
+                        featDWT[0, 2 + r] = n / approxData[r].Length;
+                    }
 
-            }
+
+                    // update waveform length
+                    if (n != 0)
+                    {
+                        waveformLength = waveformLength + (approxData[r][n] - approxData[r][n - 1]);
+                    }
+
+                } // next value
+
+                // RMS
+                featDWT[1, r] = Math.Sqrt(detailRmsCounter / detailData[r].Length);
+                featDWT[1, 2 + r] = Math.Sqrt(approxRmsCounter / approxData[r].Length);
+
+            } // next level
 
             return featDWT;
         }

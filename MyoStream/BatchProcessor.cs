@@ -22,8 +22,7 @@ namespace MyoStream
         public double[][] rawData;
         private double[][] clnData;
 
-        private double[][] detailData;
-        private double[][] approxData;
+        
 
         private double[] startEMG = new double[9];
         private double[] cleanEMG = new double[9];
@@ -39,7 +38,7 @@ namespace MyoStream
 
         public BatchProcessor()
         {
-            
+
         }
 
         public void IdentifyWavelets()
@@ -139,6 +138,91 @@ namespace MyoStream
             return currData;
         }
 
+        private async Task<double[,]> Get_Features(int channelNo, double[] signal, double[][][] dwtResults)
+        {
+            int noLevels = dwtResults[0].Length;
+
+            // feature matrix
+            int noFeatures = 5;
+
+            double[,] featDWT = new double[noFeatures, (3 * noLevels) + 1];
+            double rawSigWL = 0;
+
+
+            for (int lvl = 0; lvl < noLevels; lvl++)
+            {
+                double detailRmsCounter = 0;
+                double approxRmsCounter = 0;
+
+                double detailWL = 0;
+                double approxWL = 0;
+                
+                double reconsWL = 0;
+
+                double maxDetail = 0;
+                double maxApprox = 0;
+
+                // frequency domain
+                for (int n = 0; n < dwtResults[0][lvl].Length; n++)
+                {
+                    double detailSqrd = dwtResults[0][lvl][n] * dwtResults[0][lvl][n];
+                    double approxSqrd = dwtResults[1][lvl][n] * dwtResults[1][lvl][n];
+
+                    // sum of squares
+                    detailRmsCounter = detailRmsCounter + Math.Abs(detailSqrd);
+                    approxRmsCounter = approxRmsCounter + Math.Abs(approxSqrd);
+
+                    // update maximal values
+                    if (detailSqrd > maxDetail)
+                    {
+                        maxDetail = detailSqrd;
+                        featDWT[0, lvl] = (n + 1) / (double)dwtResults[0][lvl].Length;
+                    }
+
+                    if (approxSqrd > maxApprox)
+                    {
+                        maxApprox = approxSqrd;
+                        featDWT[0, 2 + lvl] = (n + 1) / (double)dwtResults[1][lvl].Length;
+                    }
+
+                    // update waveform length
+                    if (n != 0)
+                    {
+                        detailWL = detailWL + Math.Abs((dwtResults[0][lvl][n] - dwtResults[0][lvl][n - 1]));
+                        approxWL = approxWL + Math.Abs((dwtResults[1][lvl][n] - dwtResults[1][lvl][n - 1]));
+                    }
+                }
+
+
+                // time domain
+                for (int n = 0; n < dwtResults[2][lvl].Length; n++)
+                {
+
+                    // update waveform length
+                    if (n != 0)
+                    {
+                        rawSigWL = rawSigWL + Math.Abs(signal[n] - signal[n - 1]);
+                        reconsWL = reconsWL + Math.Abs((dwtResults[2][lvl][n] - dwtResults[2][lvl][n - 1]));
+                    }
+                }
+
+                // RMS
+                featDWT[1, lvl] = Math.Sqrt(detailRmsCounter / dwtResults[0][lvl].Length);
+                featDWT[1, 2 + lvl] = Math.Sqrt(approxRmsCounter / dwtResults[1][lvl].Length);
+
+                // WL
+                featDWT[2, lvl] = detailWL;
+                featDWT[2, 2 + lvl] = approxWL;
+                featDWT[2, 5 + lvl] = reconsWL;
+
+            }
+
+            // signal features
+            featDWT[2, 4] = rawSigWL;
+
+            return featDWT;
+        }
+
         /*
         public void StoreData()
         {
@@ -154,7 +238,7 @@ namespace MyoStream
 
         public void PlotEMGData(string session, string directory, bool showGraph = true)
         {
-            int maxDecompLev = 5;
+            int maxDecompLev = 2;
             int noChannels = 8;
 
             // prepare arrays for dwt data
@@ -170,9 +254,9 @@ namespace MyoStream
 
                 for (int ch = 0; ch < noChannels; ch++)
                 {
-                    allRecData[d][ch] = new double[currentDataLength];
                     allDetails[d][ch] = new double[currentDataLength];
                     allApproxs[d][ch] = new double[currentDataLength];
+                    allRecData[d][ch] = new double[currentDataLength];
                 }
             }
 
@@ -185,18 +269,21 @@ namespace MyoStream
             // perform DWT
             for (int x = 0; x < noChannels; x++)
             {
-                double[][] DWTData = Task.Run(() => PerformDWT(rawData[x], currentWavelet, maxDecompLev)).Result;
+                double[][][] DWTResults = Task.Run(() => PerformDWT(rawData[x], currentWavelet, maxDecompLev)).Result;
 
                 for (int y = 0; y < maxDecompLev; y++)
                 {
-                    allRecData[y][x] = DWTData[y];
-                    allApproxs[y][x] = approxData[y];
-                    allDetails[y][x] = detailData[y];
+                    allDetails[y][x] = DWTResults[0][y];
+                    allApproxs[y][x] = DWTResults[1][y];
+                    allRecData[y][x] = DWTResults[2][y];
                 }
+
+                double[,] channelFeatures = Task.Run (() => Get_Features(x, rawData[x], DWTResults)).Result;
             }
 
-            // Feature Extraction Goes Here
 
+            // Feature Extraction Goes Here
+            
 
 
 
@@ -298,24 +385,30 @@ namespace MyoStream
         }
         */
 
-        public async Task<double[][]> PerformDWT(double[] inputData, MotherWavelet inputWavelet, int maxDecompLevel)
+        public async Task<double[][][]> PerformDWT(double[] inputData, MotherWavelet inputWavelet, int maxDecompLevel)
         {
             Signal signal = new Signal(inputData);
             MotherWavelet wavelet = inputWavelet;
 
-            double[][] reconstrData = new double[maxDecompLevel][];
+            double[][][] output = new double[3][][];
+
+            double[][] reconstrData;
+            double[][] detailData;
+            double[][] approxData;
+
             detailData = new double[maxDecompLevel][];
             approxData = new double[maxDecompLevel][];
+            reconstrData = new double[maxDecompLevel][];
 
             for (int r = 1; r <= maxDecompLevel; r++)
             {
                 dwt = DWT.ExecuteDWT(signal, wavelet, r, SignalExtension.ExtensionMode.SymmetricWholePoint, WaveletStudio.Functions.ConvolutionModeEnum.Normal);
 
-                reconstrData[r - 1] = new double[signal.SamplesCount];
-                reconstrData[r - 1] = DWT.ExecuteIDWT(dwt, wavelet, dwt.Count, WaveletStudio.Functions.ConvolutionModeEnum.Normal);
-
                 detailData[r - 1] = new double[signal.SamplesCount];
                 approxData[r - 1] = new double[signal.SamplesCount];
+
+                reconstrData[r - 1] = new double[signal.SamplesCount];
+                reconstrData[r - 1] = DWT.ExecuteIDWT(dwt, wavelet, dwt.Count, WaveletStudio.Functions.ConvolutionModeEnum.Normal);
             }
 
             for (int d = 0; d < dwt.Count; d++)
@@ -324,7 +417,11 @@ namespace MyoStream
                 detailData[d] = dwt[d].Details;
             }
 
-            return reconstrData;
+            output[0] = detailData;
+            output[1] = approxData;
+            output[2] = reconstrData;
+
+            return output;
         }
 
     }
