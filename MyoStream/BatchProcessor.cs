@@ -140,22 +140,38 @@ namespace MyoStream
 
         private async Task<double[,]> Get_Features(int channelNo, double[] signal, double[][][] dwtResults)
         {
+            
+            double detailWAMPthreshold = 0.05;
+            double approxWAMPthreshold = 0.05;
+            double signalWAMPthreshold = 0.05;
+            double reconsWAMPthreshold = 0.05;
+
             int noLevels = dwtResults[0].Length;
 
-            // feature matrix
+            // feature matrix 
             int noFeatures = 5;
+            double[,] featDWT = new double[noFeatures, (3 * noLevels) + 1]; // 2 levels only implemented
 
-            double[,] featDWT = new double[noFeatures, (3 * noLevels) + 1];
+            // signal features
             double rawSigWL = 0;
-
+            double signalRmsCounter = 0;
+            int signalWAMPCounter = 0;
+            double signalMYOPCounter = 0;
 
             for (int lvl = 0; lvl < noLevels; lvl++)
             {
                 double detailRmsCounter = 0;
                 double approxRmsCounter = 0;
+                double reconsRmsCounter = 0;
 
                 double detailWL = 0;
                 double approxWL = 0;
+
+                int detailWAMPCounter = 0;
+                int approxWAMPCounter = 0;
+
+                double detailMYOPCounter = 0;
+                double approxMYOPCounter = 0;
                 
                 double reconsWL = 0;
 
@@ -185,25 +201,36 @@ namespace MyoStream
                         featDWT[0, 2 + lvl] = (n + 1) / (double)dwtResults[1][lvl].Length;
                     }
 
-                    // update waveform length
                     if (n != 0)
                     {
-                        detailWL = detailWL + Math.Abs((dwtResults[0][lvl][n] - dwtResults[0][lvl][n - 1]));
-                        approxWL = approxWL + Math.Abs((dwtResults[1][lvl][n] - dwtResults[1][lvl][n - 1]));
+                        double detailDelta = Math.Abs((dwtResults[0][lvl][n] - dwtResults[0][lvl][n - 1]));
+                        double approxDelta = Math.Abs((dwtResults[1][lvl][n] - dwtResults[1][lvl][n - 1]));
+
+                        // update waveform length
+                        detailWL = detailWL + detailDelta;
+                        approxWL = approxWL + approxDelta;
+
+                        // WAMP
+                        if (detailDelta > detailWAMPthreshold)
+                        {
+                            detailWAMPCounter++;
+                        }
+                        if (approxDelta > approxWAMPthreshold)
+                        {
+                            approxWAMPCounter++;
+                        }
                     }
-                }
 
-
-                // time domain
-                for (int n = 0; n < dwtResults[2][lvl].Length; n++)
-                {
-
-                    // update waveform length
-                    if (n != 0)
+                    //MYOP
+                    if (detailSqrd > detailWAMPthreshold)
                     {
-                        rawSigWL = rawSigWL + Math.Abs(signal[n] - signal[n - 1]);
-                        reconsWL = reconsWL + Math.Abs((dwtResults[2][lvl][n] - dwtResults[2][lvl][n - 1]));
+                        detailMYOPCounter++;
                     }
+                    if (approxSqrd > approxWAMPthreshold)
+                    {
+                        approxMYOPCounter++;
+                    }
+
                 }
 
                 // RMS
@@ -213,15 +240,92 @@ namespace MyoStream
                 // WL
                 featDWT[2, lvl] = detailWL;
                 featDWT[2, 2 + lvl] = approxWL;
-                featDWT[2, 5 + lvl] = reconsWL;
 
+                // WAMP
+                featDWT[3, lvl] = detailWAMPCounter;
+                featDWT[3, 2 + lvl] = approxWAMPCounter;
+
+                // MYOP
+                featDWT[4, lvl] = detailMYOPCounter / dwtResults[0][lvl].Length;
+                featDWT[4, 2 + lvl] = approxMYOPCounter / dwtResults[1][lvl].Length;
+
+
+                // time domain features
+                double maxSigSqrd = 0;
+                double maxRecSqrd = 0;
+
+                int reconsWAMPCounter = 0;
+                double reconsMYOPCounter = 0;
+
+                for (int n = 0; n < signal.Length; n++)
+                {
+                    double signalSqrd = signal[n] * signal[n];
+                    double reconsSqrd = dwtResults[2][lvl][n] * dwtResults[2][lvl][n];
+
+                    signalRmsCounter = signalRmsCounter + Math.Abs(signalSqrd);
+                    reconsRmsCounter = reconsRmsCounter + Math.Abs(reconsSqrd);
+
+                    // update maximal values for LMS
+                    if (signalSqrd > maxSigSqrd)
+                    {
+                        maxDetail = signalSqrd;
+                        featDWT[0, 4] = (n + 1) / (double)dwtResults[0][lvl].Length;
+                    }
+
+                    if (reconsSqrd > maxRecSqrd)
+                    {
+                        maxRecSqrd = reconsSqrd;
+                        featDWT[0, 5 + lvl] = (n + 1) / (double)dwtResults[2][lvl].Length;
+                    }
+
+                    if (n != 0)
+                    {
+                        double signalDelta = Math.Abs(signal[n] - signal[n - 1]);
+                        double reconsDelta = Math.Abs((dwtResults[2][lvl][n] - dwtResults[2][lvl][n - 1]));
+
+                        // update waveform lengths
+                        rawSigWL = rawSigWL + signalDelta;
+                        reconsWL = reconsWL + reconsDelta;
+
+                        // WAMP
+                        if (signalDelta > signalWAMPthreshold)
+                        {
+                            signalWAMPCounter++;
+                        }
+                        if (reconsDelta > reconsWAMPthreshold)
+                        {
+                            reconsWAMPCounter++;
+                        }
+                    }
+
+                    // MYOP
+                    if (reconsSqrd > reconsWAMPthreshold)
+                    {
+                        reconsMYOPCounter++;
+                    }
+                    if (signalSqrd > signalWAMPthreshold)
+                    {
+                        signalMYOPCounter++;
+                    }
+                }
+
+                // reconstructed signal RMS, WL, WAMP, MYOP
+                featDWT[1, 5 + lvl] = Math.Sqrt(reconsRmsCounter / dwtResults[2][lvl].Length);
+                featDWT[2, 5 + lvl] = reconsWL;
+                featDWT[3, 5 + lvl] = reconsWAMPCounter;
+                featDWT[4, 5 + lvl] = reconsMYOPCounter / dwtResults[2][lvl].Length;
             }
 
-            // signal features
+            // raw signal RMS, WL, WAMP, MYOP
+            featDWT[1, 4] = Math.Sqrt(signalRmsCounter / signal.Length);
             featDWT[2, 4] = rawSigWL;
+            featDWT[3, 4] = signalWAMPCounter;
+            featDWT[4, 4] = signalMYOPCounter / signal.Length;
 
             return featDWT;
         }
+
+
 
         /*
         public void StoreData()
@@ -240,6 +344,8 @@ namespace MyoStream
         {
             int maxDecompLev = 2;
             int noChannels = 8;
+
+            double[][,] allFeatures = new double[noChannels][,];
 
             // prepare arrays for dwt data
             double[][][] allRecData = new double[maxDecompLev][][];
@@ -265,6 +371,7 @@ namespace MyoStream
                 currentWavelet = CommonMotherWavelets.GetWaveletFromName(chosenWavelet);
             }
 
+            
 
             // perform DWT
             for (int x = 0; x < noChannels; x++)
@@ -278,17 +385,12 @@ namespace MyoStream
                     allRecData[y][x] = DWTResults[2][y];
                 }
 
-                double[,] channelFeatures = Task.Run (() => Get_Features(x, rawData[x], DWTResults)).Result;
+                allFeatures[x] = Task.Run (() => Get_Features(x, rawData[x], DWTResults)).Result;
             }
 
 
-            // Feature Extraction Goes Here
-            
-
-
-
             Plotter myPlotter = new Plotter();
-            myPlotter.BuildDWTChart(session, directory + "/Images", currentWavelet.Name, maxDecompLev, rawData, allDetails, allApproxs, allRecData, showGraph);
+            myPlotter.BuildDWTChart(session, directory + "/Images", currentWavelet.Name, maxDecompLev, rawData, allDetails, allApproxs, allRecData, allFeatures, showGraph);
         }
 
 

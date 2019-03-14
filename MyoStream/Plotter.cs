@@ -1,14 +1,16 @@
 ﻿using System.Drawing;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using System.Windows.Forms.DataVisualization.Charting;
 using CenterSpace.NMath.Charting.Microsoft;
+using CenterSpace.NMath.Core;
+using Windows.UI.Xaml.Controls;
 
 namespace MyoStream
 {
 
     public class Plotter
     {
-
         #region IMU Data Plotting
 
         public void BuildIMUChart(string session, string dir, double[][] IMUData)
@@ -119,14 +121,14 @@ namespace MyoStream
         }
 
 
-        public void BuildDWTChart(string session, string dir, string waveletUsed, int maxDecompLevel, double[][] signal, double[][][] details, double[][][] approxs, double[][][] ReconstructedData, bool showGraph = true)
+        public void BuildDWTChart(string session, string dir, string waveletUsed, int maxDecompLevel, double[][] signal, double[][][] details, double[][][] approxs, double[][][] ReconstructedData, double[][,] features, bool showGraph = true)
         {
 
             Color[] myPalette = new Color[] { Color.Green, Color.Red, Color.DarkBlue, Color.Peru, Color.Pink, Color.Purple, Color.MediumAquamarine, Color.YellowGreen };
 
 
             // Create and display charts.
-            Chart chart = new Chart() { Size = new System.Drawing.Size(1880, 1000), };
+            Chart chart = new Chart() { Size = new Size(1880, 1000), };
             Title title = new Title()
             {
                 Name = chart.Titles.NextUniqueName(),
@@ -207,9 +209,9 @@ namespace MyoStream
             }
 
 
-
+            
             chart.ChartAreas.Add(new ChartArea("4") { Position = new ElementPosition(0, 7, 50, 45) });
-            chart.ChartAreas[4].Area3DStyle.Enable3D = true;
+            //chart.ChartAreas[4].Area3DStyle.Enable3D = true;
 
             chart.ChartAreas[4].AxisX.Title = "Original EMG Signal";
             chart.ChartAreas[4].AxisY.Maximum = 1;
@@ -224,34 +226,84 @@ namespace MyoStream
                 ssig.Color = myPalette[ch];
                 chart.Series.Add(ssig);
             }
-            
-            float offset = 1.0f;
-            float rP = (100 / (maxDecompLevel - 1));
 
-            for (int l = 1; l < maxDecompLevel; l++)
+
+            
+
+            for (int l = 0; l < maxDecompLevel; l++)
             {
-                chart.ChartAreas.Add(new ChartArea("r" + l) { Position = new ElementPosition(50, ((l - 1) * rP) + offset, 25, rP - offset) });
-                chart.ChartAreas[4 + l].AxisX.Title = "Reconstruction, from level " + (l + 0);
-                chart.ChartAreas[4 + l].AxisY.Maximum = 1;
-                chart.ChartAreas[4 + l].AxisY.Minimum = -1;
+                chart.ChartAreas.Add(new ChartArea("r" + l) { Position = new ElementPosition(50, (l * 25) + 2, 50, 25) });
+                chart.ChartAreas[5 + l].AxisX.Title = "Reconstruction, from level " + (l + 1);
+                chart.ChartAreas[5 + l].AxisY.Maximum = 1;
+                chart.ChartAreas[5 + l].AxisY.Minimum = -1;
 
                 for (int ch = 0; ch < ReconstructedData[l].Length; ch++)
                 {
                     Series series = new Series();
                     series.ChartType = SeriesChartType.Line;
-                    series.Points.DataBindY(ReconstructedData[l - 1][ch]); 
+                    series.Points.DataBindY(ReconstructedData[l][ch]); 
                     series.ChartArea = "r" + l;
                     series.Color = myPalette[ch];
                     chart.Series.Add(series);
                 }
             }
 
+            // show table of features
+            chart.ChartAreas.Add(new ChartArea("g") { Position = new ElementPosition(50, 55, 50, 45) });
+            chart.ChartAreas[7].AxisX.Title = "grid of features";
+
+            System.Windows.Forms.DataGrid featureGrid = new System.Windows.Forms.DataGrid
+            {
+                Location = new Point(700, 500),
+                Size = new Size(300, 200),
+                CaptionText = "grid of features",
+                DataSource = features[0]
+            };
+
+
+            System.Data.DataTable feat = new System.Data.DataTable("features");
+            feat.Columns.Add("LMS");
+            feat.Columns.Add("RMS");
+            feat.Columns.Add("WL");
+            feat.Columns.Add("WAMP");
+            feat.Columns.Add("MYOP");
+
+
+            for (int row = 0; row < feat.Columns.Count; row++)
+            {
+                System.Data.DataRow dr = feat.NewRow();
+                dr["LMS"] = features[0][row, 0];
+                dr["RMS"] = features[0][row, 1];
+                dr["WL"] = features[0][row, 2];
+                dr["WAMP"] = features[0][row, 3];
+                dr["MYOP"] = features[0][row, 4];
+
+                feat.Rows.Add(dr);
+            }
+
+            //featureGrid.Show();
+
+
+
+            DataGridTableStyle FeatTS = new DataGridTableStyle { MappingName = "feat" };
+
+            // Add a second column style.
+            DataGridColumnStyle TextCol = new DataGridTextBoxColumn();
+            TextCol.MappingName = "LMS";
+            TextCol.HeaderText = "Localised Max. Sq.";
+            TextCol.Width = 250;
+            FeatTS.GridColumnStyles.Add(TextCol);
+
+
             // Save and display the chart
             string savePath = dir + "/" + session + "_ EMG DWT using " + waveletUsed + " wavelet.png";
             chart.SaveImage(savePath, ChartImageFormat.Png);
 
             if (showGraph)
-            { NMathChart.Show(chart); }
+            {
+                NMathChart.Show(chart);
+                
+            }
         }
 
 

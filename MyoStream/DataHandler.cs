@@ -62,51 +62,50 @@ namespace MyoStream
 
         private double[] startEMG = new double[9];
         private double[] cleanEMG = new double[9];
-        private int cnt = 0;
+        private int EMGcounter = 0;
+        private int IMUcounter = 0;
+
+        private int EMG_OUTPUT_COLUMNS_SIZE = 9;
+        private int IMU_OUTPUT_COLUMNS_SIZE = 11;
 
         private int sessionNo = 1;
-        private string date = DateTime.Now.Date.ToString("yyyyMMdd");
+        private string date;
 
         // IMU data storage
-        //private Int16[][] _IMUdata;
         private float[][] _fltIMUd;
-        private Quaternion _myoQuaternion { get; set; }
-
-        private float orientationW = 0;
-        private float orientationX = 0;
-        private float orientationY = 0;
-        private float orientationZ = 0;
-        private float accelerationX = 0;
-        private float accelerationY = 0;
-        private float accelerationZ = 0;
-        private float gyroscopeX = 0;
-        private float gyroscopeY = 0;
-        private float gyroscopeZ = 0;
-
         private string ortData = "";
         private string accData = "";
         private string gyrData = "";
         private string IMUString = "";
+        private string[] imuStrings;
+        private bool imuValueIsDifferent = false;
 
         #endregion Private Variables
 
 
         public DataHandler()
         {
+            date = DateTime.Now.Date.ToString("yyyyMMdd");
             IsRunning = false;
 
-            rawdubs = new double[9][];
-            for (int dArr = 0; dArr < 9; dArr++)
+            rawdubs = new double[EMG_OUTPUT_COLUMNS_SIZE][];
+            for (int dArr = 0; dArr < EMG_OUTPUT_COLUMNS_SIZE; dArr++)
             {
                 rawdubs[dArr] = new double[segment];
             }
 
-            rawFlot = new float[9][];
-            for (int dArr = 0; dArr < 9; dArr++)
+            rawFlot = new float[EMG_OUTPUT_COLUMNS_SIZE][];
+            for (int dArr = 0; dArr < EMG_OUTPUT_COLUMNS_SIZE; dArr++)
             {
                 rawFlot[dArr] = new float[segment];
             }
 
+            _fltIMUd = new float[IMU_OUTPUT_COLUMNS_SIZE][];
+            for (int imuArr = 0; imuArr < IMU_OUTPUT_COLUMNS_SIZE; imuArr++)
+            {
+                _fltIMUd[imuArr] = new float[segment];
+            }
+            imuStrings = new string[segment / 2];
         }
 
 
@@ -114,7 +113,8 @@ namespace MyoStream
 
         public void EMG_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
         {
-            EMGChannel0 = GetEMGData(args.CharacteristicValue);
+            IBuffer emgVal = args.CharacteristicValue;
+            EMGChannel0 = GetEMGData(emgVal);
 
             Task wrangleIt = Task.Factory.StartNew(() => WrangleEMGData(EMGChannel0));
             wrangleIt.Wait();
@@ -158,18 +158,19 @@ namespace MyoStream
 
         public void IMU_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
         {
-            _fltIMUd = GetIMUData(args.CharacteristicValue);
+            IBuffer charVal = args.CharacteristicValue;
+            _fltIMUd = GetIMUData(charVal);
+
             ortData = string.Join(",", _fltIMUd[0]);
             accData = string.Join(",", _fltIMUd[1]);
             gyrData = string.Join(",", _fltIMUd[2]);
 
-            long nowTicks = DateTime.UtcNow.Ticks;
-            IMUString = nowTicks + "," + ortData + "," + accData + "," + gyrData;
-
-            if (isRecording)
-            { Task.Run(async () => await StoreIMUData(IMUString).ConfigureAwait(true)); }
+            imuValueIsDifferent = true;
 
             /*
+            long nowTicks = DateTime.UtcNow.Ticks;
+            IMUString = nowTicks + "," + ortData + "," + accData + "," + gyrData;
+ 
             orientationX = _IMUdata[0][0];
             orientationY = _IMUdata[0][1];
             orientationZ = _IMUdata[0][2];
@@ -214,7 +215,7 @@ namespace MyoStream
 
             for (int w = 0; w < 3; w++)
             { fltIMUdata[2][w] = ((float)(rawIMUdata[2][w] / 32768.0f)) + 0.5f; }
-            
+
 
             /* Scaling (old)
             for (int u = 0; u < 4; u++)
@@ -226,7 +227,7 @@ namespace MyoStream
             for (int w = 0; w < 3; w++)
             { rawIMUdata[2][w] = (short)(rawIMUdata[2][w]); }
             */
-
+            totalIMURecords++;
             return fltIMUdata;
         }
 
@@ -241,14 +242,14 @@ namespace MyoStream
             thisSessionId = sessionId;
 
             string localFolder = "C:/Users/16102434/Desktop/Current Work/Myo/testData";  //Environment.CurrentDirectory; //firebase...
-            string fileName = (sessionId + "_" + date + "_" + sessionNo.ToString("D3") + "-" + deviceName + "_EMG_Data.csv");
+            string fileName = (sessionId + "_" + deviceName + "_" + sessionNo.ToString("D3") + "-" + date  + "_EMG_Data.csv");
 
             string headers = @"Timestamp 0, raw_EMG_0, raw_EMG_1, raw_EMG_2, raw_EMG_3, raw_EMG_4, raw_EMG_5, raw_EMG_6, raw_EMG_7";
 
             while (File.Exists(localFolder + "/" + fileName))
             {
                 sessionNo++;
-                fileName = (sessionId + "_" + date + "_" + sessionNo.ToString("D3") + "-" + deviceName + "_EMG_Data.csv");                              // incorp. number earlier
+                fileName = (sessionId + "_" + deviceName + "_" + sessionNo.ToString("D3") + "-" + date + "_EMG_Data.csv");                              // incorp. number earlier
             }
 
             emgWriter = new StreamWriter(localFolder + "/" + fileName, append: true, encoding: System.Text.Encoding.UTF8, bufferSize: 512);
@@ -263,12 +264,12 @@ namespace MyoStream
         public void Prep_IMU_Datastream(string deviceName, string sessionId)
         {
             string localFolder = "C:/Users/16102434/Desktop/Current Work/Myo/testData";  // Environment.CurrentDirectory;
-            string fileName = (sessionId + "_" + date + "_" + sessionNo.ToString("D3") + "-" + deviceName + "_IMU_Data.csv");
+            string fileName = (sessionId + "_" + deviceName + "_" + sessionNo.ToString("D3") + "-" + date + "_IMU_Data.csv");
 
             while (File.Exists(localFolder + "/" + fileName))
             {
                 sessionNo++;
-                fileName = (sessionId + "_" + date + "_" + sessionNo.ToString("D3") + "-" + deviceName + "_IMU_Data.csv");
+                fileName = (sessionId + "_" + deviceName + "_" + sessionNo.ToString("D3") + "-" + date + "_IMU_Data.csv");
             }
 
             string headers = "Timestamp 0, orientationW, orientationX, orientationY, orientationZ," +
@@ -357,22 +358,24 @@ namespace MyoStream
 
         private Task WrangleEMGData(sbyte[][] rawData) // receives a 9x2 array of EMG data, sends [segment]x9 array to streamwriter, when full
         {
-            if (cnt >= segment) {
+            
+            if (EMGcounter >= segment) {
                 Console.WriteLine("data arrays overloaded");
                 return null;
             }
 
             long now = DateTime.UtcNow.Ticks;
-            rawFlot[0][cnt] = now;
-            rawFlot[0][cnt + 1] = now;
 
+            // fill EMG arrays
+            rawFlot[0][EMGcounter] = now;
+            rawFlot[0][EMGcounter + 1] = now;
             for (int x = 1; x < 9; x++)
             {
-                rawFlot[x][cnt] = (rawData[0][x - 1] / 128.0f);
-                rawFlot[x][cnt + 1] = (rawData[1][x - 1] / 180.0f);
+                rawFlot[x][EMGcounter] = (rawData[0][x - 1] / 128.0f);
+                rawFlot[x][EMGcounter + 1] = (rawData[1][x - 1] / 180.0f);
 
-                float range = Math.Abs(rawFlot[x][cnt + 1] - rawFlot[x][cnt]);
-
+                // count pulses and (half) waveform length
+                float range = Math.Abs(rawFlot[x][EMGcounter + 1] - rawFlot[x][EMGcounter]);
                 if (range > proportionChangeTrigger)
                 {
                     pulseCounter++;
@@ -380,22 +383,27 @@ namespace MyoStream
                 }
             }
 
-
-            // only write out when we hit the segment size 
-            if (cnt + 2 == segment)
+            IMUString = now + "," + ortData + "," + accData + "," + gyrData;
+            imuStrings[EMGcounter / 2] = IMUString;
+            
+            // only write out when we hit the segment size
+            if (EMGcounter + 2 == segment)
             {
-                Console.WriteLine(proportionChangeTrigger + " percent change occurences: " + pulseCounter);
-
-
                 if (pulseCounter >= flagThresholdLevelOne)
                 {
                     isRecording = true;
-                    Task.Run(() => StoreEmgData(rawFlot)).ConfigureAwait(true);     
+                    Task.Run(async () => await StoreEmgData(rawFlot)).ConfigureAwait(true);
+                    Task.Run(async () => await StoreIMUData(imuStrings).ConfigureAwait(true));
+
+                    Console.WriteLine(proportionChangeTrigger + " percent change occurences: " + pulseCounter);
                 }
 
                 else if (pulseCounter > flagThresholdLevelTwo && isRecording)
                 {
-                    Task.Run(() => StoreEmgData(rawFlot)).ConfigureAwait(true);
+                    Task.Run(async () => await StoreEmgData(rawFlot)).ConfigureAwait(true);
+                    Task.Run(async () => await StoreIMUData(imuStrings).ConfigureAwait(true));
+
+                    Console.WriteLine(proportionChangeTrigger + " percent change occurences: " + pulseCounter);
                 }
 
                 else if (pulseCounter < flagThresholdLevelTwo && isRecording)
@@ -405,13 +413,14 @@ namespace MyoStream
                     Prep_IMU_Datastream(thisDeviceName, thisSessionId);
                 }
 
-                cnt = 0;
+                EMGcounter = 0;
+                IMUcounter = 0;
                 pulseCounter = 0;
                 waveformLength = 0;
             }
             else
             {
-                cnt += 2;
+                EMGcounter += 2;
             }
             return null;
         }
@@ -557,33 +566,37 @@ namespace MyoStream
         }
         */
 
-        private async void StoreEmgData(float[][] rawData)
+        private async Task StoreEmgData(float[][] rawData)
         {
-            // save EMG data
             if (emgWriter.BaseStream != null)
             {
-                for (int j = 0; j < segment; j++)
+                for (int j = 0; j < rawData[0].Length; j++)
                 {
                     for (int k = 0; k < 9; k++)
                     {
                         startEMG[k] = rawData[k][j];
                     }
 
-                    string atfrst = string.Join(",", startEMG);
-                    emgWriter.WriteLine(atfrst);
-                    emgWriter.Flush();
+                    string saveString = string.Join(",", startEMG);
+                    emgWriter.WriteLine(saveString);
+                    
                 }
+                emgWriter.Flush();
             }
         }
 
  
-        private async Task StoreIMUData(string imuString)
+        private async Task StoreIMUData(string[] imuStrings)
         {
             if (imuWriter.BaseStream != null)
             {
-                imuWriter.WriteLine(imuString);
+                for (int j = 0; j < imuStrings.Length; j++)
+                {
+                    imuWriter.WriteLine(imuStrings[j]);
+                    
+                }
                 imuWriter.Flush();
-                totalIMURecords++;
+                Console.WriteLine(imuStrings.Length + " IMU records written to file");
             }
         }
         
