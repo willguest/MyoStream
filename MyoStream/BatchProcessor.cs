@@ -326,20 +326,6 @@ namespace MyoStream
         }
 
 
-
-        /*
-        public void StoreData()
-        {
-            Prep_Datastream();
-            Task storeIt = Task.Run(async () => await StoreEMGData(currentDataLength, rawData, clnData).ConfigureAwait(true));
-            sWriter.Close();
-            sWriter.Dispose();
-            sWriter = null;
-        }
-        */
-
-
-
         public void PlotEMGData(string session, string directory, bool showGraph = true)
         {
             int maxDecompLev = 2;
@@ -433,59 +419,6 @@ namespace MyoStream
             }
         }
 
-        /*
-        private async Task StoreEMGData(int noRecords, double[][] rawEMG, double[][] resEMG)
-        {
-
-            if (sWriter.BaseStream != null)
-            {
-                // use only complete data (truncate)
-                for (int j = 0; j < noRecords; j++)
-                {
-                    for (int k = 0; k < 9; k++)
-                    {
-                        //ciao
-                        startEMG[k] = rawEMG[k][j];
-                        cleanEMG[k] = resEMG[k][j];
-                    }
-
-                    string atfrst = string.Join(",", startEMG);
-                    string atlast = string.Join(",", cleanEMG);
-
-                    sWriter.WriteLine(atfrst + "," + atlast);
-                }
-                sWriter.Flush();
-            }
-        }
-
-        private void Prep_Datastream()
-        {
-            bool newFile = false;
-            var _now = DateTime.Now.ToString();
-
-            string fileName = (currentFilename + "_Clean.csv");
-
-            string headers = "Timestamp 0, raw_EMG_0, raw_EMG_1, raw_EMG_2, raw_EMG_3, raw_EMG_4, raw_EMG_5, raw_EMG_6, raw_EMG_7," +
-                "Timestamp 1, cln_EMG_0, cln_EMG_1, cln_EMG_2, cln_EMG_3, cln_EMG_4, cln_EMG_5, cln_EMG_6, cln_EMG_7";
-
-            if (!File.Exists(currentDirectory + "/" + fileName))
-            {
-                newFile = true;
-            }
-
-            sWriter = new StreamWriter(currentDirectory + "/" + fileName, append: true);
-
-            if (newFile)
-            {
-                sWriter.WriteLine(headers);
-            }
-
-            sWriter.BaseStream.Seek(0, SeekOrigin.End);
-            sWriter.Flush();
-            sWriter.AutoFlush = true;
-
-        }
-        */
 
         public async Task<double[][][]> PerformDWT(double[] inputData, MotherWavelet inputWavelet, int maxDecompLevel)
         {

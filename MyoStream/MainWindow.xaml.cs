@@ -26,7 +26,7 @@ namespace MyoStream
         public string SessionId;
 
         private string deviceFilterString = "Myo";                                                  // Search string for devices
-        public int _tick = 100;                                                                     // millisecond interval between updates
+        public int _tick = 1000;                                                                     // millisecond interval between updates
         //private String directory = Environment.CurrentDirectory  + "/testData";                     // directory to store records
         private string directory = "C:/Users/16102434/Desktop/Current Work/Myo/testData";
 
@@ -304,6 +304,7 @@ namespace MyoStream
 
         #region Connect and Disconnect
 
+        
 
         private Guid AddMyoArmbandFromDevice(BluetoothLEDevice _device)
         {
@@ -317,6 +318,7 @@ namespace MyoStream
             newMyo.Device.ConnectionStatusChanged += deviceConnChanged;
 
             newMyo.myDataHandler = new DataHandler();
+
 
             bool alreadyFound = false;
             foreach (MyoArmband m in connectedMyos)
@@ -402,10 +404,10 @@ namespace MyoStream
             if (myo.controlService != null)
             {
                 myo.controlService.Dispose();
-                myo.imuService.Dispose();
-                myo.emgService.Dispose();
-                myo.Device.Dispose();
             }
+            if (myo.imuService != null) myo.imuService.Dispose();
+            if (myo.emgService != null) myo.emgService.Dispose();
+            if (myo.Device != null) myo.Device.Dispose();
 
             myo.FW_charac = null;
             myo.cmdCharac = null;
@@ -576,6 +578,10 @@ namespace MyoStream
                 Task.WaitAll(EmgNotificationTasks);
 
                 int errhandCode = myo.TryConnectEventHandlers();
+                if (errhandCode > 0)
+                {
+                    Console.WriteLine("error attached event handlers, code " + errhandCode);
+                }
 
                 int emgErrCode = (int)myo.EmgConnStat[0] + (int)myo.EmgConnStat[1] + (int)myo.EmgConnStat[2] + (int)myo.EmgConnStat[3];
                 if (emgErrCode != 0) { return 5; }
@@ -584,6 +590,8 @@ namespace MyoStream
                 vibrate_armband(myo);
                 myo.IsReady = true;
                 myo.DevConnStat = BluetoothConnectionStatus.Connected;
+
+                // prepare files for data collection
                 myo.myDataHandler.Prep_EMG_Datastream(myo.Name, SessionId);
                 myo.myDataHandler.Prep_IMU_Datastream(myo.Name, SessionId);
 
@@ -627,10 +635,12 @@ namespace MyoStream
                 {
                     Write(myo.cmdCharac, startStreamCommand);
                     dispatcherTimer.Start();
+                    myo.myDataHandler.IsRunning = true;
+                    myo.myDataHandler.Check_Data_Preparedness();
                 }
                 else
                 {
-                    Console.WriteLine("Error send start command to myo");
+                    Console.WriteLine("Error sending start command to myo");
                 }
             }
 
@@ -663,8 +673,12 @@ namespace MyoStream
                     myo.myDataHandler.IsRunning = false;
                     myo.myDataHandler.Stop_Datastream();
 
-                    myo.myDataHandler.Prep_EMG_Datastream(myo.Name, SessionId);
-                    myo.myDataHandler.Prep_IMU_Datastream(myo.Name, SessionId);
+                    if (myo.myDataHandler.isRecording)
+                    {
+                        myo.myDataHandler.isRecording = false;
+                        myo.myDataHandler.Prep_EMG_Datastream(myo.Name, SessionId);
+                        myo.myDataHandler.Prep_IMU_Datastream(myo.Name, SessionId);
+                    }
                     captureDuration = 0;
                 }
             }

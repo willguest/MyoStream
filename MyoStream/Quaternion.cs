@@ -84,13 +84,6 @@ namespace MyoStream
                                   quat1._w * quat2._w - quat1._x * quat2._x - quat1._y * quat2._y - quat1._z * quat2._z);
         }
 
-        public static Vector3 operator *(Quaternion quat, Vector3 vec)
-        {
-            var qvec = new Quaternion(vec.X, vec.Y, vec.Z, 0);
-            var result = quat * qvec * quat.Conjugate();
-            return new Vector3(result.X, result.Y, result.Z);
-        }
-
         //
         // TODO compound arithmetic operators
         //

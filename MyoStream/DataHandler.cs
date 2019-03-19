@@ -29,47 +29,46 @@ namespace MyoStream
 
     public class DataHandler
     {
-        public bool IsRunning { get; set; }
-        public int segment = 32;
-
-        private string thisDeviceName = "";
-        private string thisSessionId = "";
-
         //public delegate void CallbackStack(IMUDataFrame myoIMUFrame);
         //public CallbackStack OnMyoIMUUpdate;
 
         //public delegate void CallbackStack2(EMGDataFrame myoEMGFrame);
         //public CallbackStack2 OnMyoEMGUpdate;
 
+
+        // public variables
+        public bool IsRunning { get; set; }
+        public bool isRecording = false;
+        public int segment = 32;
+
         public int totalEMGRecords = 0;
         public int totalIMURecords = 0;
 
-
         #region Private Variables
+
+        // session variables
+        private string thisDeviceName = "";
+        private string thisSessionId = "";
+        private int sessionNo = 1;
+        private string date;
 
         private StreamWriter emgWriter;
         private StreamWriter imuWriter;
 
+
         // EMG data storage
+        private int EMGcounter = 0;
+        private int EMG_OUTPUT_COLUMNS_SIZE = 8;
+
         private sbyte[][] EMGChannel0;
         private sbyte[][] EMGChannel1;
         private sbyte[][] EMGChannel2;
         private sbyte[][] EMGChannel3;
 
-        private double[][] rawdubs;
         private float[][] rawFlot;
-
-
-        private double[] startEMG = new double[9];
-        private double[] cleanEMG = new double[9];
-        private int EMGcounter = 0;
-        private int IMUcounter = 0;
-
-        private int EMG_OUTPUT_COLUMNS_SIZE = 9;
-        private int IMU_OUTPUT_COLUMNS_SIZE = 11;
-
-        private int sessionNo = 1;
-        private string date;
+        private long[] emgTimestamps;
+        private double[] storageEMG;
+        
 
         // IMU data storage
         private float[][] _fltIMUd;
@@ -78,7 +77,7 @@ namespace MyoStream
         private string gyrData = "";
         private string IMUString = "";
         private string[] imuStrings;
-        private bool imuValueIsDifferent = false;
+
 
         #endregion Private Variables
 
@@ -88,37 +87,35 @@ namespace MyoStream
             date = DateTime.Now.Date.ToString("yyyyMMdd");
             IsRunning = false;
 
-            rawdubs = new double[EMG_OUTPUT_COLUMNS_SIZE][];
-            for (int dArr = 0; dArr < EMG_OUTPUT_COLUMNS_SIZE; dArr++)
-            {
-                rawdubs[dArr] = new double[segment];
-            }
-
+            EMGChannel0 = new sbyte[8][];
+            emgTimestamps = new long[segment];
+            storageEMG = new double[EMG_OUTPUT_COLUMNS_SIZE];
             rawFlot = new float[EMG_OUTPUT_COLUMNS_SIZE][];
+
             for (int dArr = 0; dArr < EMG_OUTPUT_COLUMNS_SIZE; dArr++)
             {
                 rawFlot[dArr] = new float[segment];
             }
 
-            _fltIMUd = new float[IMU_OUTPUT_COLUMNS_SIZE][];
-            for (int imuArr = 0; imuArr < IMU_OUTPUT_COLUMNS_SIZE; imuArr++)
-            {
-                _fltIMUd[imuArr] = new float[segment];
-            }
+            _fltIMUd = new float[][] { new float[4], new float[3], new float[3] };
             imuStrings = new string[segment / 2];
         }
 
 
         #region EMG Data Capture
 
-        public void EMG_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
+        public async void EMG_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
         {
+            // send the buffer to an IOutputStream using WriteAsync to speed things up
+
+
             IBuffer emgVal = args.CharacteristicValue;
             EMGChannel0 = GetEMGData(emgVal);
 
             Task wrangleIt = Task.Factory.StartNew(() => WrangleEMGData(EMGChannel0));
             wrangleIt.Wait();
         }
+
         public void EMG1_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
         {
             EMGChannel1 = GetEMGData(args.CharacteristicValue);
@@ -165,25 +162,20 @@ namespace MyoStream
             accData = string.Join(",", _fltIMUd[1]);
             gyrData = string.Join(",", _fltIMUd[2]);
 
-            imuValueIsDifferent = true;
-
             /*
-            long nowTicks = DateTime.UtcNow.Ticks;
-            IMUString = nowTicks + "," + ortData + "," + accData + "," + gyrData;
- 
-            orientationX = _IMUdata[0][0];
-            orientationY = _IMUdata[0][1];
-            orientationZ = _IMUdata[0][2];
-            orientationW = _IMUdata[0][3];
+            orientationX = _fltIMUd[0][0];
+            orientationY = _fltIMUd[0][1];
+            orientationZ = _fltIMUd[0][2];
+            orientationW = _fltIMUd[0][3];
             _myoQuaternion = new Quaternion(orientationX, orientationY, orientationZ, orientationW);
             
-            accelerationX = _IMUdata[1][0];
-            accelerationY = _IMUdata[1][1];
-            accelerationZ = _IMUdata[1][2];
+            accelerationX = _fltIMUd[1][0];
+            accelerationY = _fltIMUd[1][1];
+            accelerationZ = _fltIMUd[1][2];
 
-            gyroscopeX = _IMUdata[2][0];
-            gyroscopeY = _IMUdata[2][1];
-            gyroscopeZ = _IMUdata[2][2];
+            gyroscopeX = _fltIMUd[2][0];
+            gyroscopeY = _fltIMUd[2][1];
+            gyroscopeZ = _fltIMUd[2][2];
             */
         }
 
@@ -194,7 +186,7 @@ namespace MyoStream
             reader.ReadBytes(fileContent);
 
             var rawIMUdata = new Int16[][] { new Int16[4], new Int16[3], new Int16[3] };
-            var fltIMUdata = new float[][] { new float[4], new float[3], new float[3] };
+            float[][] fltIMUdata = new float[][] { new float[4], new float[3], new float[3] };
 
             // Orientation (quat.) data
             System.Buffer.BlockCopy(fileContent, 0, rawIMUdata[0], 0, 8);
@@ -233,8 +225,22 @@ namespace MyoStream
 
         #endregion IMU Data Capture
 
-        
+
         #region Prep and Stop Datastream
+
+
+        public void Check_Data_Preparedness()
+        {
+            if (emgWriter == null)
+            {
+                Prep_EMG_Datastream(thisDeviceName, thisSessionId);
+            }
+
+            if (imuWriter == null)
+            {
+                Prep_IMU_Datastream(thisDeviceName, thisSessionId);
+            }
+        }
 
         public async void Prep_EMG_Datastream(string deviceName, string sessionId)
         {
@@ -242,17 +248,17 @@ namespace MyoStream
             thisSessionId = sessionId;
 
             string localFolder = "C:/Users/16102434/Desktop/Current Work/Myo/testData";  //Environment.CurrentDirectory; //firebase...
-            string fileName = (sessionId + "_" + deviceName + "_" + sessionNo.ToString("D3") + "-" + date  + "_EMG_Data.csv");
-
-            string headers = @"Timestamp 0, raw_EMG_0, raw_EMG_1, raw_EMG_2, raw_EMG_3, raw_EMG_4, raw_EMG_5, raw_EMG_6, raw_EMG_7";
+            string fileName = (date + "_EMG_Data_" + sessionId + "_" + deviceName + "_" + sessionNo.ToString("D3") + ".csv");
+            string headers = @"Timestamp, raw_EMG_0, raw_EMG_1, raw_EMG_2, raw_EMG_3, raw_EMG_4, raw_EMG_5, raw_EMG_6, raw_EMG_7";
 
             while (File.Exists(localFolder + "/" + fileName))
             {
                 sessionNo++;
-                fileName = (sessionId + "_" + deviceName + "_" + sessionNo.ToString("D3") + "-" + date + "_EMG_Data.csv");                              // incorp. number earlier
+                fileName = (date + "_EMG_Data_" + sessionId + "_" + deviceName + "_" + sessionNo.ToString("D3") + ".csv");                              // incorp. number earlier
             }
 
-            emgWriter = new StreamWriter(localFolder + "/" + fileName, append: true, encoding: System.Text.Encoding.UTF8, bufferSize: 512);
+            emgWriter = null;
+            emgWriter = new StreamWriter(localFolder + "/" + fileName, append: true, encoding: System.Text.Encoding.UTF8, bufferSize: 8192);
 
             await Task.Run(() => emgWriter.WriteLine(headers));
             emgWriter.BaseStream.Seek(0, SeekOrigin.End);
@@ -261,24 +267,25 @@ namespace MyoStream
         }
 
 
-        public void Prep_IMU_Datastream(string deviceName, string sessionId)
+        public async void Prep_IMU_Datastream(string deviceName, string sessionId)
         {
             string localFolder = "C:/Users/16102434/Desktop/Current Work/Myo/testData";  // Environment.CurrentDirectory;
-            string fileName = (sessionId + "_" + deviceName + "_" + sessionNo.ToString("D3") + "-" + date + "_IMU_Data.csv");
+            string fileName = (date + "_IMU_Data_" + sessionId + "_" + deviceName + "_" + sessionNo.ToString("D3") + ".csv");
 
             while (File.Exists(localFolder + "/" + fileName))
             {
                 sessionNo++;
-                fileName = (sessionId + "_" + deviceName + "_" + sessionNo.ToString("D3") + "-" + date + "_IMU_Data.csv");
+                fileName = (date + "_IMU_Data_" + sessionId + "_" + deviceName + "_" + sessionNo.ToString("D3") + ".csv");
             }
 
-            string headers = "Timestamp 0, orientationW, orientationX, orientationY, orientationZ," +
+            string headers = "Timestamp, orientationW, orientationX, orientationY, orientationZ," +
                 "accelerationX, accelerationY, accelerationZ," +
                 "gyroscopeX, gyroscopeY, gyroscopeZ";
 
-            imuWriter = new StreamWriter(localFolder + "/" + fileName, append: true);
+            imuWriter = null;
+            imuWriter = new StreamWriter(localFolder + "/" + fileName, append: true, encoding: System.Text.Encoding.UTF8, bufferSize: 8192);
 
-            imuWriter.WriteLine(headers);
+            await Task.Run(() => imuWriter.WriteLine(headers));
             imuWriter.BaseStream.Seek(0, SeekOrigin.End);
             imuWriter.Flush();
             imuWriter.AutoFlush = false;
@@ -293,12 +300,23 @@ namespace MyoStream
             Console.WriteLine(totalEMGRecords + " EMG records received on all channels from " + thisDeviceName);
             Console.WriteLine(totalIMURecords + " IMU records received from " + thisDeviceName);
 
-            imuWriter.Flush();
-            emgWriter.Flush();
-            imuWriter.Close();
-            emgWriter.Close();
-            imuWriter = null;
-            emgWriter = null;
+            if (imuWriter != null)
+            {
+                imuWriter.Flush();
+                imuWriter.Close();
+                imuWriter = null;
+            }
+            
+            if (emgWriter != null)
+            {
+                emgWriter.Flush();
+                emgWriter.Close();
+                emgWriter = null;
+            }
+            
+            EMGcounter = 0;
+            pulseCounter = 0;
+            waveformLength = 0;
         }
 
         #endregion Prep and Stop Datastream
@@ -350,29 +368,39 @@ namespace MyoStream
 
         private int pulseCounter = 0;
         private float waveformLength = 0;
+
+        // test by  1) lightly clenching your fists, hit the top of one to the bottom of the other
+        //          2) swap your hands over and do it again
+        //          3) finish by clicking or clapping
+
+        // three actions to inform thresholding, for three muscle groups...
+
         private float proportionChangeTrigger = 0.11f;
+
+        // tweak these for each person
         private int flagThresholdLevelOne = 40;
         private int flagThresholdLevelTwo = 30;
-        
-        private bool isRecording = false;
 
-        private Task WrangleEMGData(sbyte[][] rawData) // receives a 9x2 array of EMG data, sends [segment]x9 array to streamwriter, when full
+        private DateTime today = DateTime.Today;
+        private long nowTicks = 0;
+
+        private Task WrangleEMGData(sbyte[][] rawData) // receives a 8x2 array of EMG data, sends [segment]x8 array to streamwriter, when full
         {
-            
             if (EMGcounter >= segment) {
                 Console.WriteLine("data arrays overloaded");
                 return null;
             }
 
-            long now = DateTime.UtcNow.Ticks;
+            nowTicks = DateTime.UtcNow.Ticks;
 
             // fill EMG arrays
-            rawFlot[0][EMGcounter] = now;
-            rawFlot[0][EMGcounter + 1] = now;
-            for (int x = 1; x < 9; x++)
+            emgTimestamps[EMGcounter] = nowTicks;
+            emgTimestamps[EMGcounter + 1] = nowTicks;
+
+            for (int x = 0; x < EMG_OUTPUT_COLUMNS_SIZE; x++)
             {
-                rawFlot[x][EMGcounter] = (rawData[0][x - 1] / 128.0f);
-                rawFlot[x][EMGcounter + 1] = (rawData[1][x - 1] / 180.0f);
+                rawFlot[x][EMGcounter] = (rawData[0][x] / 128.0f);
+                rawFlot[x][EMGcounter + 1] = (rawData[1][x] / 128.0f);
 
                 // count pulses and (half) waveform length
                 float range = Math.Abs(rawFlot[x][EMGcounter + 1] - rawFlot[x][EMGcounter]);
@@ -383,7 +411,8 @@ namespace MyoStream
                 }
             }
 
-            IMUString = now + "," + ortData + "," + accData + "," + gyrData;
+            // pick up IM data on the way...
+            IMUString = nowTicks + "," + ortData + "," + accData + "," + gyrData;
             imuStrings[EMGcounter / 2] = IMUString;
             
             // only write out when we hit the segment size
@@ -392,18 +421,18 @@ namespace MyoStream
                 if (pulseCounter >= flagThresholdLevelOne)
                 {
                     isRecording = true;
-                    Task.Run(async () => await StoreEmgData(rawFlot)).ConfigureAwait(true);
+                    Task.Run(async () => await StoreEmgData(emgTimestamps, rawFlot)).ConfigureAwait(true);
                     Task.Run(async () => await StoreIMUData(imuStrings).ConfigureAwait(true));
 
-                    Console.WriteLine(proportionChangeTrigger + " percent change occurences: " + pulseCounter);
+                    Console.WriteLine("ppp --> " + pulseCounter);
                 }
 
                 else if (pulseCounter > flagThresholdLevelTwo && isRecording)
                 {
-                    Task.Run(async () => await StoreEmgData(rawFlot)).ConfigureAwait(true);
+                    Task.Run(async () => await StoreEmgData(emgTimestamps, rawFlot)).ConfigureAwait(true);
                     Task.Run(async () => await StoreIMUData(imuStrings).ConfigureAwait(true));
 
-                    Console.WriteLine(proportionChangeTrigger + " percent change occurences: " + pulseCounter);
+                    Console.WriteLine("ppp --> " + pulseCounter);
                 }
 
                 else if (pulseCounter < flagThresholdLevelTwo && isRecording)
@@ -413,8 +442,8 @@ namespace MyoStream
                     Prep_IMU_Datastream(thisDeviceName, thisSessionId);
                 }
 
+                // end of segment, clear counters
                 EMGcounter = 0;
-                IMUcounter = 0;
                 pulseCounter = 0;
                 waveformLength = 0;
             }
@@ -484,7 +513,6 @@ namespace MyoStream
                         maxApprox = approxSqrd;
                         featDWT[0, 2 + r] = n / approxData[r].Length;
                     }
-
 
                     // update waveform length
                     if (n != 0)
@@ -566,20 +594,20 @@ namespace MyoStream
         }
         */
 
-        private async Task StoreEmgData(float[][] rawData)
+        private async Task StoreEmgData(long[] timestamps, float[][] dataToStore)
         {
             if (emgWriter.BaseStream != null)
             {
-                for (int j = 0; j < rawData[0].Length; j++)
+                for (int j = 0; j < dataToStore[0].Length; j++)
                 {
-                    for (int k = 0; k < 9; k++)
+                    for (int k = 0; k < EMG_OUTPUT_COLUMNS_SIZE; k++)
                     {
-                        startEMG[k] = rawData[k][j];
+                        storageEMG[k] = dataToStore[k][j];
                     }
 
-                    string saveString = string.Join(",", startEMG);
-                    emgWriter.WriteLine(saveString);
+                    string saveString = timestamps[j] + "," + string.Join(",", storageEMG);
                     
+                    await emgWriter.WriteLineAsync(saveString);
                 }
                 emgWriter.Flush();
             }
@@ -592,11 +620,10 @@ namespace MyoStream
             {
                 for (int j = 0; j < imuStrings.Length; j++)
                 {
-                    imuWriter.WriteLine(imuStrings[j]);
-                    
+                    await imuWriter.WriteLineAsync(imuStrings[j]);
+                    Console.WriteLine("ssl: " + imuStrings[j].Length);
                 }
                 imuWriter.Flush();
-                Console.WriteLine(imuStrings.Length + " IMU records written to file");
             }
         }
         
