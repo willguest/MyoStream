@@ -21,7 +21,7 @@ namespace MyoStream
             Title title = new Title()
             {
                 Name = chart.Titles.NextUniqueName(),
-                Text = session + "'s (R) IMU Data",
+                Text = session + "'s IMU Data",
                 Font = new Font("Trebuchet MS", 12F, FontStyle.Bold),
                 Position = new ElementPosition(15, 1.5f, 20, 5),
             };
@@ -123,186 +123,163 @@ namespace MyoStream
 
         public void BuildDWTChart(string session, string dir, string waveletUsed, int maxDecompLevel, double[][] signal, double[][][] details, double[][][] approxs, double[][][] ReconstructedData, double[][,] features, bool showGraph = true)
         {
-
+            string suffix = " DWT Using " + waveletUsed + " Wavelet";
             Color[] myPalette = new Color[] { Color.Green, Color.Red, Color.DarkBlue, Color.Peru, Color.Pink, Color.Purple, Color.MediumAquamarine, Color.YellowGreen };
 
-
-            // Create and display charts.
+            // add chart
             Chart chart = new Chart() { Size = new Size(1880, 1000), };
+
+            // add chart title
             Title title = new Title()
             {
                 Name = chart.Titles.NextUniqueName(),
-                Text = session + "- DWT Using " + waveletUsed + " Wavelet",
+                Text = session + suffix,
                 Font = new Font("Trebuchet MS", 12F, FontStyle.Bold),
                 Position = new ElementPosition(15, 1.5f, 20, 5),
             };
             chart.Titles.Add(title);
 
-            chart.ChartAreas.Add(new ChartArea("0") { Position = new ElementPosition(0, 52, 25, 23) });
-            chart.ChartAreas[0].AxisX.Title = "Decomposition Details (Sqrd), Lev.1";
-            chart.ChartAreas[0].AxisY.Maximum = 1.5;
-            chart.ChartAreas[0].AxisY.Minimum = 0;
+            #region Signal Charts (raw and reconstructed)
 
-            chart.ChartAreas.Add(new ChartArea("1") { Position = new ElementPosition(25, 52, 25, 23) });
-            chart.ChartAreas[1].AxisX.Title = "DWT Approximations (Sqrd), Lev.1";
-            chart.ChartAreas[1].AxisY.Maximum = 1.5;
-            chart.ChartAreas[1].AxisY.Minimum = 0;
-
-            for (int ch = 0; ch < details[0].Length; ch++)
-            {
-                double[] newArray0 = new double[details[0][ch].Length];
-                for (int x = 0; x < newArray0.Length; x++)
-                { newArray0[x] = details[0][ch][x] * details[0][ch][x]; }
-
-                Series sd1 = new Series();
-                sd1.ChartType = SeriesChartType.Line;
-                sd1.Points.DataBindY(newArray0);
-                sd1.ChartArea = "0";
-                sd1.Color = myPalette[ch];
-                chart.Series.Add(sd1);
-
-                double[] newArray1 = new double[approxs[0][ch].Length];
-                for (int x = 0; x < newArray1.Length; x++)
-                { newArray1[x] = approxs[0][ch][x] * approxs[0][ch][x]; }
-
-                Series sa1 = new Series();
-                sa1.ChartType = SeriesChartType.Line;
-                sa1.Points.DataBindY(newArray1);
-                sa1.ChartArea = "1";
-                sa1.Color = myPalette[ch];
-                chart.Series.Add(sa1);
-            }
-
-            chart.ChartAreas.Add(new ChartArea("2") { Position = new ElementPosition(0, 75, 25, 23) });
-            chart.ChartAreas[2].AxisX.Title = "Decomposition Details (Sqrd), Lev.2";
-            chart.ChartAreas[2].AxisY.Maximum = 1.5;
-            chart.ChartAreas[2].AxisY.Minimum = 0;
-
-            chart.ChartAreas.Add(new ChartArea("3") { Position = new ElementPosition(25, 75, 25, 23) });
-            chart.ChartAreas[3].AxisX.Title = "DWT Approximations (Sqrd), Level 2";
-            chart.ChartAreas[3].AxisY.Maximum = 1.5;
-            chart.ChartAreas[3].AxisY.Minimum = 0;
-
-            for (int ch = 0; ch < details[1].Length; ch++)
-            {
-                double[] newArray1 = new double[details[1][ch].Length];
-                for (int x = 0; x < newArray1.Length; x++)
-                { newArray1[x] = details[1][ch][x] * details[1][ch][x]; }
-
-                Series sd2 = new Series();
-                sd2.ChartType = SeriesChartType.Line;
-                sd2.Points.DataBindY(newArray1);
-                sd2.ChartArea = "2";
-                sd2.Color = myPalette[ch];
-                chart.Series.Add(sd2);
-
-                double[] newArray2 = new double[approxs[1][ch].Length];
-                for (int x = 0; x < newArray2.Length; x++)
-                { newArray2[x] = approxs[1][ch][x] * approxs[1][ch][x]; }
-
-                Series sa2 = new Series();
-                sa2.ChartType = SeriesChartType.Line;
-                sa2.Points.DataBindY(newArray2);
-                sa2.ChartArea = "3";
-                sa2.Color = myPalette[ch];
-                chart.Series.Add(sa2);
-            }
-
-
-            
-            chart.ChartAreas.Add(new ChartArea("4") { Position = new ElementPosition(0, 7, 50, 45) });
-            //chart.ChartAreas[4].Area3DStyle.Enable3D = true;
-
-            chart.ChartAreas[4].AxisX.Title = "Original EMG Signal";
-            chart.ChartAreas[4].AxisY.Maximum = 1;
-            chart.ChartAreas[4].AxisY.Minimum = -1;
+            chart.ChartAreas.Add(new ChartArea("0") { Position = new ElementPosition(0, 7, 50, 35) });
+            chart.ChartAreas[0].AxisX.Title = "Original EMG Signal";
+            chart.ChartAreas[0].AxisX.TitleAlignment = StringAlignment.Center;
+            chart.ChartAreas[0].AxisY.Maximum = 1;
+            chart.ChartAreas[0].AxisY.Minimum = -1;
 
             for (int ch = 0; ch < signal.Length; ch++)
             {
                 Series ssig = new Series();
                 ssig.ChartType = SeriesChartType.Line;
                 ssig.Points.DataBindY(signal[ch]);
-                ssig.ChartArea = "4";
+                ssig.ChartArea = "0";
                 ssig.Color = myPalette[ch];
                 chart.Series.Add(ssig);
             }
 
-
-            
-
             for (int l = 0; l < maxDecompLevel; l++)
             {
-                chart.ChartAreas.Add(new ChartArea("r" + l) { Position = new ElementPosition(50, (l * 25) + 2, 50, 25) });
-                chart.ChartAreas[5 + l].AxisX.Title = "Reconstruction, from level " + (l + 1);
-                chart.ChartAreas[5 + l].AxisY.Maximum = 1;
-                chart.ChartAreas[5 + l].AxisY.Minimum = -1;
+                chart.ChartAreas.Add(new ChartArea("r" + l) { Position = new ElementPosition(50, (l * 17) + 7, 48, 18) });
+                chart.ChartAreas[1 + l].AxisX.Title = "Reconstruction, from level " + (l + 1);
+                chart.ChartAreas[1 + l].AxisX.TitleAlignment = StringAlignment.Center;
+                chart.ChartAreas[1 + l].AxisY.Maximum = 1;
+                chart.ChartAreas[1 + l].AxisY.Minimum = -1;
 
                 for (int ch = 0; ch < ReconstructedData[l].Length; ch++)
                 {
                     Series series = new Series();
                     series.ChartType = SeriesChartType.Line;
-                    series.Points.DataBindY(ReconstructedData[l][ch]); 
+                    series.Points.DataBindY(ReconstructedData[l][ch]);
                     series.ChartArea = "r" + l;
                     series.Color = myPalette[ch];
                     chart.Series.Add(series);
                 }
             }
 
-            // show table of features
-            chart.ChartAreas.Add(new ChartArea("g") { Position = new ElementPosition(50, 55, 50, 45) });
-            chart.ChartAreas[7].AxisX.Title = "grid of features";
+            #endregion Signal Charts (raw and reconstructed)
 
-            System.Windows.Forms.DataGrid featureGrid = new System.Windows.Forms.DataGrid
+            #region DWT Chart Titles
+
+            Title detailLevel1Title = new Title()
             {
-                Location = new Point(700, 500),
-                Size = new Size(300, 200),
-                CaptionText = "grid of features",
-                DataSource = features[0]
+                Name = "L1 details",
+                Text = "L1 details",
+                Font = new Font("Trebuchet MS", 10F),
+                TextOrientation = TextOrientation.Rotated270,
+                Position = new ElementPosition(-1, 40, 5, 20),
+
             };
-
-
-            System.Data.DataTable feat = new System.Data.DataTable("features");
-            feat.Columns.Add("LMS");
-            feat.Columns.Add("RMS");
-            feat.Columns.Add("WL");
-            feat.Columns.Add("WAMP");
-            feat.Columns.Add("MYOP");
-
-
-            for (int row = 0; row < feat.Columns.Count; row++)
+            Title approxLevel1Title = new Title()
             {
-                System.Data.DataRow dr = feat.NewRow();
-                dr["LMS"] = features[0][row, 0];
-                dr["RMS"] = features[0][row, 1];
-                dr["WL"] = features[0][row, 2];
-                dr["WAMP"] = features[0][row, 3];
-                dr["MYOP"] = features[0][row, 4];
+                Name = "L1 approximations",
+                Text = "L1 approx.",
+                Font = new Font("Trebuchet MS", 10F),
+                TextOrientation = TextOrientation.Rotated270,
+                Position = new ElementPosition(-1, 52, 5, 20),
+            };
+            Title detailLevel2Title = new Title()
+            {
+                Name = "L2 details",
+                Text = "L2 details",
+                Font = new Font("Trebuchet MS", 10F),
+                TextOrientation = TextOrientation.Rotated270,
+                Position = new ElementPosition(-1, 65, 5, 20),
+            };
+            Title approxLevel2Title = new Title()
+            {
+                Name = "L2 approximations",
+                Text = "L2 approx.",
+                Font = new Font("Trebuchet MS", 10F),
+                TextOrientation = TextOrientation.Rotated270,
+                Position = new ElementPosition(-1, 78, 5, 20),
+            };
+            chart.Titles.Add(detailLevel1Title);
+            chart.Titles.Add(approxLevel1Title);
+            chart.Titles.Add(detailLevel2Title);
+            chart.Titles.Add(approxLevel2Title);
 
-                feat.Rows.Add(dr);
+            #endregion DWT Chart Titles
+
+            #region DWT Charts
+
+            for (int ch = 0; ch < details[0].Length; ch++)
+            {
+                // titles (channel 'ch')
+                Title chTitle = new Title()
+                {
+                    Name = chart.Titles.NextUniqueName(),
+                    Text = "Channel " + (ch + 1),
+                    Font = new Font("Trebuchet MS", 12F, FontStyle.Bold),
+                    Position = new ElementPosition((ch * 12) + 1, 41, 13, 5),
+                };
+                chart.Titles.Add(chTitle);
+
+                // detail and approximation charts
+                chart.ChartAreas.Add(new ChartArea("dwt-d1" + ch) { Position = new ElementPosition((ch * 12), 45, 13, 13) });
+                //double[] cD1sqrd = new double[details[0][ch].Length]; // option to square values 
+                //for (int x = 0; x < cD1sqrd.Length; x++)
+                //{ cD1sqrd[x] = details[0][ch][x] * details[0][ch][x]; }
+                Series sd1 = new Series();
+                sd1.ChartType = SeriesChartType.Bar;
+                sd1.Points.DataBindY(details[0][ch]);
+                sd1.ChartArea = "dwt-d1" + ch;
+                sd1.Color = myPalette[ch];
+                chart.Series.Add(sd1);
+
+                chart.ChartAreas.Add(new ChartArea("dwt-a1" + ch) { Position = new ElementPosition((ch * 12), 58, 13, 13) });
+                Series sa1 = new Series();
+                sa1.ChartType = SeriesChartType.Bar;
+                sa1.Points.DataBindY(approxs[0][ch]);
+                sa1.ChartArea = "dwt-a1" + ch;
+                sa1.Color = myPalette[ch];
+                chart.Series.Add(sa1);
+
+                chart.ChartAreas.Add(new ChartArea("dwt-d2" + ch) { Position = new ElementPosition((ch * 12), 71, 13, 13) });
+                Series sd2 = new Series();
+                sd2.ChartType = SeriesChartType.Bar;
+                sd2.Points.DataBindY(details[1][ch]);
+                sd2.ChartArea = "dwt-d2" + ch;
+                sd2.Color = myPalette[ch];
+                chart.Series.Add(sd2);
+
+                chart.ChartAreas.Add(new ChartArea("dwt-a2" + ch) { Position = new ElementPosition((ch * 12), 84, 13, 13) });
+                Series sa2 = new Series();
+                sa2.ChartType = SeriesChartType.Bar;
+                sa2.Points.DataBindY(approxs[1][ch]);
+                sa2.ChartArea = "dwt-a2" + ch;
+                sa2.Color = myPalette[ch];
+                chart.Series.Add(sa2);
             }
 
-            //featureGrid.Show();
-
-
-
-            DataGridTableStyle FeatTS = new DataGridTableStyle { MappingName = "feat" };
-
-            // Add a second column style.
-            DataGridColumnStyle TextCol = new DataGridTextBoxColumn();
-            TextCol.MappingName = "LMS";
-            TextCol.HeaderText = "Localised Max. Sq.";
-            TextCol.Width = 250;
-            FeatTS.GridColumnStyles.Add(TextCol);
-
+            #endregion DWT Charts
 
             // Save and display the chart
-            string savePath = dir + "/" + session + "_ EMG DWT using " + waveletUsed + " wavelet.png";
+            string savePath = dir + "/" + session + suffix + ".png";
             chart.SaveImage(savePath, ChartImageFormat.Png);
 
             if (showGraph)
             {
                 NMathChart.Show(chart);
-                
             }
         }
 

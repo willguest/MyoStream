@@ -23,11 +23,11 @@ namespace MyoStream
     public partial class MainWindow
     {
         public bool EnableToggle = false;
-        public string SessionId;
+        public string SessionId = "";
 
         private string deviceFilterString = "Myo";                                                  // Search string for devices
-        public int _tick = 1000;                                                                     // millisecond interval between updates
-        //private String directory = Environment.CurrentDirectory  + "/testData";                     // directory to store records
+        public int _tick = 1000;                                                                    // millisecond interval between updates
+        //private String directory = Environment.CurrentDirectory  + "/Data";                       // directory to store records
         private string directory = "C:/Users/16102434/Desktop/Current Work/Myo/testData";
 
         #region Variables
@@ -35,7 +35,6 @@ namespace MyoStream
         private Plotter _plot = new Plotter();
         public List<string> fileList = new List<string>();
         public BatchProcessor _bp;
-
 
         // Watchers
         private BluetoothLEAdvertisementWatcher BleWatcher;
@@ -61,10 +60,11 @@ namespace MyoStream
         private double captureDuration = 0;
 
         private List<string> topLeveLWavelets = new List<string>();
-        private string[] files;
 
-        // Data objects for batch processing
-
+        private string[] dataFiles;
+        private string[] dataFolders;
+        private string currentFilename;
+        private string currentDataFolder;
 
         #endregion Variables
 
@@ -78,13 +78,13 @@ namespace MyoStream
         { StartDataStream(); }
 
         private void LoadFile_Click(object sender, EventArgs e)
-        { LoadDataFile(); }
+        { LoadDataFile(cmbFileList.Text); }
 
         private void ShowCharts_Click(object sender, EventArgs e)
         { ShowCharts(); }
 
-        private void ShowAllTheCharts_Click(object sender, EventArgs e)
-        { ShowAllCharts(); }
+        private void ExtractFeatures_Click(object sender, EventArgs e)
+        { ExtractFeatures(); }
 
         private void Reset_Right_Click(object sender, EventArgs e)
         { ResetDevices(); }
@@ -112,7 +112,12 @@ namespace MyoStream
 
             bondedMyos.CollectionChanged += bondedMyos_Changed;
 
-            SetDataBindings();
+            // initialise batch processor and hook combo boxes to the right places
+            _bp = new BatchProcessor();
+            ResetDataBindings();
+            cmbWavelets.SelectionChanged += _bp.SelectWavelet;
+
+            string headers = WriteHeaders();
         }
 
         private void ToggleButton()
@@ -138,7 +143,7 @@ namespace MyoStream
         public void RefreshUI()
         {
             RefreshDeviceStatus();
-            SetDataBindings();
+            ResetDataBindings();
         }
 
 
@@ -178,83 +183,261 @@ namespace MyoStream
             });
         }
 
-        private void SetDataBindings()
+        private void ResetDataBindings()
         {
             Dispatcher.Invoke(() =>
             {
-                //string[] files;
-                files = Directory.GetFiles(directory, "*.csv", SearchOption.TopDirectoryOnly).Select(x => Path.GetFileNameWithoutExtension(x)).ToArray();
-                cmbFileList.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = files });
+                dataFiles = Directory.GetFiles(directory, "*.csv", SearchOption.TopDirectoryOnly).Select(x => Path.GetFileNameWithoutExtension(x)).ToArray();
+                dataFolders = Directory.GetDirectories(directory, "*", SearchOption.AllDirectories).ToArray();
+
+                cmbFileList.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = dataFiles });
+                cmbFolderList.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = dataFolders });
+                cmbWavelets.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = _bp.IdentifyWavelets() });
+
+                currentDataFolder = Environment.CurrentDirectory + "/Data";
+                
             });
         }
 
         
-        private void LoadDataFile()
+        private double[][] LoadDataFile(string filename)
         {
-            string filename = cmbFileList.Text;
-
-            // Load file (getting data length)
-            _bp = new BatchProcessor();
-            int noRecords = _bp.LoadFileFromDir(directory, filename);
-            txtLoadResult.Text = noRecords + " records";
-
-            // interpret hyphen to separate session name from id
-            int endsessId = filename.IndexOf("-");
-            if (endsessId > 0)
+            int fPL = filename.Length;
+            if (filename.Substring(fPL - 4, 4) != ".csv")
             {
-                SessionId = filename.Substring(0, endsessId);
+                Console.WriteLine("Not a csv file");
+                return null;
             }
-            else
-            {
-                SessionId = "unknown";
-            }
+
+            currentFilename = filename;
+
+            // Load file (getting data length)           
+            double[][] newData = _bp.LoadFileFromDir(directory, currentFilename);
+            //txtLoadResult.Text = newData[0].Length + " records";
             
-            if (filename.Contains("EMG"))
+            if (currentFilename.Contains("EMG"))
             {
-                // Update wavelet list
-                cmbWavelets.SelectionChanged -= _bp.SelectWavelet;
-                cmbWavelets.SelectedIndex = -1;
-                _bp.IdentifyWavelets();
-                topLeveLWavelets = _bp.WaveletNames;
-                cmbWavelets.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding() { Source = topLeveLWavelets });
-                cmbWavelets.SelectionChanged += _bp.SelectWavelet;
-
                 // load all the data into the dwt batch processor
-                _bp.SizeDataArrays(noRecords);
-                _bp.chosenWavelet = "sym4";
+                _bp.SizeDataArrays(newData[0].Length);
+                //_bp.chosenWavelet = "db4";
 
             }
-            else if (filename.Contains("IMU"))
+            else if (currentFilename.Contains("IMU"))
             {
-                _bp.PlotIMUData(SessionId, directory);
+                _bp.PlotIMUData(currentFilename, directory);
             }
+
+            return newData;
         }
+
+
 
         private void ShowCharts()
         {
             if (_bp != null)
             {
-                _bp.PlotEMGData(SessionId, directory, true);
+                _bp.PlotEMGData(currentFilename, directory);
             }
         }
 
 
-        private void ShowAllCharts()
+
+        private string WriteHeaders()
         {
-            //string[] files;
-            //files = Directory.GetFiles(directory, "*.csv", SearchOption.TopDirectoryOnly).Select(x => Path.GetFileNameWithoutExtension(x)).ToArray();
-            Console.WriteLine("files length: " + files.Length);
-
-            foreach (string s in files)
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            string[] featureAbbr = { "lms", "rms", "wl", "wamp", "myop" };
+            string[] dataSetAbbr = { "cD1", "cD2", "cA1", "cA2", "sig", "sR1", "sR2" };
+            for (int x = 1; x < 9; x++)
             {
-                cmbFileList.Text = s;
-                LoadDataFile();
-
-                if (_bp != null)
+                for (int y = 0; y < featureAbbr.Length; y++)
                 {
-                    _bp.PlotEMGData(SessionId, directory, false);
+                    for (int z = 0; z < dataSetAbbr.Length; z++)
+                    {
+                        sb.Append("ch" + x + "-" + featureAbbr[y] + "-" + dataSetAbbr[z] + ",");
+                    }
                 }
             }
+            string finalStr = (sb.ToString().Remove(sb.ToString().Length - 1));
+            return finalStr;
+        }
+
+        public string WriteDWTHeaders(int dLen1, int aLen1, int dLen2, int aLen2)
+        {
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+
+            for (int x = 1; x <= dLen1; x++)
+            {
+                sb.Append("L1_detail_" + x);
+                sb.Append(",");
+            }
+            for (int x = 1; x <= aLen1; x++)
+            {
+                sb.Append("L1_approx_" + x);
+                sb.Append(",");
+            }
+            for (int x = 1; x <= dLen2; x++)
+            {
+                sb.Append("L2_detail_" + x);
+                sb.Append(",");
+            }
+            for (int x = 1; x <= aLen2; x++)
+            {
+                sb.Append("L2_approx_" + x);
+                sb.Append(",");
+            }
+
+            string finalStr = (sb.ToString().Remove(sb.ToString().Length - 1));
+            return finalStr;
+        }
+
+
+        private string Manage_DWT_Coefficients(double[][][] dwtResults)
+        {
+            double[] L1_castDetails = new double[16];
+            double[] L1_castApproxs = new double[16];
+            double[] L2_castDetails = new double[16];
+            double[] L2_castApproxs = new double[16];
+
+            int noInEachBinL1 = (dwtResults[0][0].Length) / 16;
+            int leftOvers = dwtResults[0][0].Length - (noInEachBinL1 * 16);
+            int startBuffer = leftOvers / 2;
+            int endBuffer = leftOvers - startBuffer;
+
+            /*
+            Console.WriteLine(noInEachBinL1 + " in each bin \n" +
+                leftOvers + " remaining \n" +
+                startBuffer + ", " + endBuffer + " = start/end buffers");
+            */
+
+            int noInEachBinL2 = (dwtResults[1][0].Length - 5) / 16;
+
+
+
+            double coeffCounter = 0;
+            int castingCounter = 0;
+            
+            for (int a = startBuffer; a < dwtResults[0][0].Length - endBuffer; a++) // cut two from front and back
+            {
+                for (int b = 0; b < noInEachBinL1; b++)
+                {
+                    if (Math.Abs(dwtResults[0][0][a + b]) > coeffCounter)
+                    {
+                        coeffCounter = dwtResults[0][0][a + b];
+                    }
+                    a += b;
+                }
+                
+                L1_castDetails[castingCounter] = coeffCounter;
+                coeffCounter = 0;
+                castingCounter++;
+            }
+
+            string L1string = string.Join(",", L1_castDetails);
+
+            return L1string;
+        }
+
+
+        private void ExtractFeatures()
+        {
+            long startTime = DateTime.UtcNow.Ticks;
+
+            currentDataFolder = cmbFolderList.Text;
+            string[] dataFiles = Directory.GetFiles(currentDataFolder, "*.csv", SearchOption.TopDirectoryOnly).Select(x => Path.GetFullPath(x)).ToArray();
+
+            var dSessId = currentDataFolder.Split('\\').Last();
+
+            Console.WriteLine("Processing " + dataFiles.Length + "files");
+
+            string[] features = new string[dataFiles.Length];
+            string[] dwtCoeff = new string[dataFiles.Length];
+
+            int fileIndex = 0;
+
+            List<int> coeffStats = new List<int>();
+
+            double[][][] DWTres = new double[3][][];
+
+            foreach (string s in dataFiles)
+            {
+                string newDWTcoeffs = "";
+                cmbFileList.Text = s;
+                currentFilename = s;
+                double[][] freshData = LoadDataFile(s);
+
+                if (_bp != null && freshData != null)
+                {
+                    DWTres = _bp.Do_DWT_on_Signal(freshData);
+                    
+                    try
+                    {
+                        newDWTcoeffs = Manage_DWT_Coefficients(DWTres);
+
+                        Console.WriteLine("Coefficient lengths" +
+                        ": " + DWTres[0][0].Length +
+                        ", " + DWTres[1][0].Length +
+                        ", " + DWTres[0][1].Length +
+                        ", " + DWTres[1][1].Length
+                        );
+
+                        dwtCoeff[fileIndex] = newDWTcoeffs;
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+                }
+
+                // mathematical feature calculation
+                if (DWTres != null)
+                {
+                    double[][,] allFeats = Task.Run(async () => await _bp.Extract_Features_From_DWT_Results(freshData, DWTres)).Result;
+                    features[fileIndex] = _bp.Flatten_EMG_Features(allFeats);
+                }
+                if (features[fileIndex] != "")
+                {
+                    fileIndex++;
+                }
+
+            }
+
+            int dL1 = DWTres[0][0].Length;
+            int aL1 = DWTres[1][0].Length;
+            int dL2 = DWTres[0][1].Length;
+            int aL2 = DWTres[1][1].Length;
+
+            Directory.CreateDirectory(Path.Combine(currentDataFolder, "Features"));
+
+            // write dwt detail and approx vectors to file
+            string dwtHeaders = WriteDWTHeaders(dL1, aL1, dL2, aL2);
+            string dwtfileName = (SessionId + "_DWTCoefficients_" + _bp.chosenWavelet + ".csv");
+            using (StreamWriter sw1 = new StreamWriter(currentDataFolder + "/Features/" + dwtfileName))
+            {
+                sw1.WriteLine(dwtHeaders);
+
+                foreach (string c in dwtCoeff)
+                {
+                    sw1.WriteLine(c);
+                }
+            }
+
+
+            // write features to file
+            string headers = WriteHeaders();
+            string fileName = (SessionId + "_EMGFeatures_" + _bp.chosenWavelet + ".csv");
+            using (StreamWriter sw2 = new StreamWriter(currentDataFolder + "/Features/" + fileName))
+            {
+                sw2.WriteLine(headers);
+
+                foreach (string s in features)
+                {
+                    sw2.WriteLine(s);
+                }
+            }
+
+            long duration = DateTime.UtcNow.Ticks - startTime;
+            Console.WriteLine(fileIndex + " files loaded and arranged in " + (float)duration / 10000000f + " seconds");
+
         }
 
 
@@ -318,7 +501,6 @@ namespace MyoStream
             newMyo.Device.ConnectionStatusChanged += deviceConnChanged;
 
             newMyo.myDataHandler = new DataHandler();
-
 
             bool alreadyFound = false;
             foreach (MyoArmband m in connectedMyos)
@@ -475,12 +657,13 @@ namespace MyoStream
             else if (sender.ConnectionStatus == BluetoothConnectionStatus.Connected)
             {
                 connectedMyos[indexOfModifiedMyo].IsConnected = true;
-
+                /*
                 while (!connectedMyos[indexOfModifiedMyo].IsReady)
                 {
                     //int errCode = SetupMyo(connectedMyos[indexOfModifiedMyo].Id);
                     //Console.WriteLine("setup of " + modifiedMyo.Name + " attempted, returned code: " + errCode);
                 }
+                */
             }
         }
 
@@ -944,6 +1127,10 @@ namespace MyoStream
 
         #endregion GATT Functions
 
+        private void OnSessionNameUpdate(object sender, TextChangedEventArgs e)
+        {
+            SessionId = txtSessionId.Text;
+        }
     }
 }
 

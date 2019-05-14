@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using System.Windows.Media.Media3D;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
@@ -59,6 +60,7 @@ namespace MyoStream
         // EMG data storage
         private int EMGcounter = 0;
         private int EMG_OUTPUT_COLUMNS_SIZE = 8;
+        private int OUTPUT_BUFFER_SIZE = 512;
 
         private sbyte[][] EMGChannel0;
         private sbyte[][] EMGChannel1;
@@ -68,7 +70,9 @@ namespace MyoStream
         private float[][] rawFlot;
         private long[] emgTimestamps;
         private double[] storageEMG;
-        
+
+        private IBuffer[] emgVals;
+
 
         // IMU data storage
         private float[][] _fltIMUd;
@@ -87,16 +91,17 @@ namespace MyoStream
             date = DateTime.Now.Date.ToString("yyyyMMdd");
             IsRunning = false;
 
-            EMGChannel0 = new sbyte[8][];
             emgTimestamps = new long[segment];
+            EMGChannel0 = new sbyte[EMG_OUTPUT_COLUMNS_SIZE][];
             storageEMG = new double[EMG_OUTPUT_COLUMNS_SIZE];
             rawFlot = new float[EMG_OUTPUT_COLUMNS_SIZE][];
+
+            emgVals = new IBuffer[4];
 
             for (int dArr = 0; dArr < EMG_OUTPUT_COLUMNS_SIZE; dArr++)
             {
                 rawFlot[dArr] = new float[segment];
             }
-
             _fltIMUd = new float[][] { new float[4], new float[3], new float[3] };
             imuStrings = new string[segment / 2];
         }
@@ -104,35 +109,47 @@ namespace MyoStream
 
         #region EMG Data Capture
 
-        public async void EMG_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
+        public void EMG0_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
         {
-            // send the buffer to an IOutputStream using WriteAsync to speed things up
-
-
-            IBuffer emgVal = args.CharacteristicValue;
-            EMGChannel0 = GetEMGData(emgVal);
-
+            emgVals[0] = args.CharacteristicValue;
+            EMGChannel0 = GetEMGData(emgVals[0]);
             Task wrangleIt = Task.Factory.StartNew(() => WrangleEMGData(EMGChannel0));
             wrangleIt.Wait();
         }
-
         public void EMG1_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
         {
+            emgVals[1] = args.CharacteristicValue;
             EMGChannel1 = GetEMGData(args.CharacteristicValue);
-            //Task.Run(() => WrangleEMGData(EMGChannel1));
+            Task wrangleIt = Task.Factory.StartNew(() => WrangleEMGData(EMGChannel1));
+            wrangleIt.Wait();
         }
         public void EMG2_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
         {
+            emgVals[2] = args.CharacteristicValue;
             EMGChannel2 = GetEMGData(args.CharacteristicValue);
-            //Task.Run(() => WrangleEMGData(EMGChannel2));
+            Task wrangleIt = Task.Factory.StartNew(() => WrangleEMGData(EMGChannel2));
+            wrangleIt.Wait();
         }
         public void EMG3_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
         {
+            emgVals[3] = args.CharacteristicValue;
             EMGChannel3 = GetEMGData(args.CharacteristicValue);
-            //Task.Run(() => WrangleEMGData(EMGChannel3));
+            Task wrangleIt = Task.Factory.StartNew(() => WrangleEMGData(EMGChannel3));
+            wrangleIt.Wait();
         }
 
+        private sbyte[][] GetEMGData(byte[] characByte)
+        {
+            totalEMGRecords += 2;
 
+            sbyte[][] _data = new sbyte[][] { new sbyte[8], new sbyte[8] };
+
+            System.Buffer.BlockCopy(characByte, 0, _data[0], 0, 8);
+            System.Buffer.BlockCopy(characByte, 8, _data[1], 0, 8);
+
+            return _data;
+        }
+        
         private sbyte[][] GetEMGData(IBuffer characVal)
         {
             totalEMGRecords += 2;
@@ -147,7 +164,7 @@ namespace MyoStream
 
             return _data;
         }
-
+        
         #endregion EMG Data Capture
 
 
@@ -248,6 +265,7 @@ namespace MyoStream
             thisSessionId = sessionId;
 
             string localFolder = "C:/Users/16102434/Desktop/Current Work/Myo/testData";  //Environment.CurrentDirectory; //firebase...
+
             string fileName = (date + "_EMG_Data_" + sessionId + "_" + deviceName + "_" + sessionNo.ToString("D3") + ".csv");
             string headers = @"Timestamp, raw_EMG_0, raw_EMG_1, raw_EMG_2, raw_EMG_3, raw_EMG_4, raw_EMG_5, raw_EMG_6, raw_EMG_7";
 
@@ -258,7 +276,7 @@ namespace MyoStream
             }
 
             emgWriter = null;
-            emgWriter = new StreamWriter(localFolder + "/" + fileName, append: true, encoding: System.Text.Encoding.UTF8, bufferSize: 8192);
+            emgWriter = new StreamWriter(localFolder + "/" + fileName, append: true, encoding: System.Text.Encoding.UTF8, bufferSize: OUTPUT_BUFFER_SIZE);
 
             await Task.Run(() => emgWriter.WriteLine(headers));
             emgWriter.BaseStream.Seek(0, SeekOrigin.End);
@@ -283,7 +301,7 @@ namespace MyoStream
                 "gyroscopeX, gyroscopeY, gyroscopeZ";
 
             imuWriter = null;
-            imuWriter = new StreamWriter(localFolder + "/" + fileName, append: true, encoding: System.Text.Encoding.UTF8, bufferSize: 8192);
+            imuWriter = new StreamWriter(localFolder + "/" + fileName, append: true, encoding: System.Text.Encoding.UTF8, bufferSize: OUTPUT_BUFFER_SIZE);
 
             await Task.Run(() => imuWriter.WriteLine(headers));
             imuWriter.BaseStream.Seek(0, SeekOrigin.End);
@@ -291,7 +309,7 @@ namespace MyoStream
             imuWriter.AutoFlush = false;
         }
 
-        
+
 
         public void Stop_Datastream()
         {
@@ -306,14 +324,14 @@ namespace MyoStream
                 imuWriter.Close();
                 imuWriter = null;
             }
-            
+
             if (emgWriter != null)
             {
                 emgWriter.Flush();
                 emgWriter.Close();
                 emgWriter = null;
             }
-            
+
             EMGcounter = 0;
             pulseCounter = 0;
             waveformLength = 0;
@@ -604,9 +622,7 @@ namespace MyoStream
                     {
                         storageEMG[k] = dataToStore[k][j];
                     }
-
                     string saveString = timestamps[j] + "," + string.Join(",", storageEMG);
-                    
                     await emgWriter.WriteLineAsync(saveString);
                 }
                 emgWriter.Flush();
@@ -621,7 +637,6 @@ namespace MyoStream
                 for (int j = 0; j < imuStrings.Length; j++)
                 {
                     await imuWriter.WriteLineAsync(imuStrings[j]);
-                    Console.WriteLine("ssl: " + imuStrings[j].Length);
                 }
                 imuWriter.Flush();
             }

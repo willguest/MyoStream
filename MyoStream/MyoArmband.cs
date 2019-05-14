@@ -46,10 +46,10 @@ namespace MyoStream
 
             try {
 
-                emgCharacs[0].ValueChanged += myDataHandler.EMG_ValueChanged;
-                emgCharacs[1].ValueChanged += myDataHandler.EMG_ValueChanged;
-                emgCharacs[2].ValueChanged += myDataHandler.EMG_ValueChanged;
-                emgCharacs[3].ValueChanged += myDataHandler.EMG_ValueChanged;
+                emgCharacs[0].ValueChanged += myDataHandler.EMG0_ValueChanged;
+                emgCharacs[1].ValueChanged += myDataHandler.EMG1_ValueChanged;
+                emgCharacs[2].ValueChanged += myDataHandler.EMG2_ValueChanged;
+                emgCharacs[3].ValueChanged += myDataHandler.EMG3_ValueChanged;
             }
             catch { return 2; }
 

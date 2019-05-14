@@ -138,9 +138,9 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="BatchProcessor.cs" />
-    <Compile Include="DataHandler.cs" />
-    <Compile Include="dataUtils.cs" />
+    <Compile Include="DataUtilities\BatchProcessor.cs" />
+    <Compile Include="DataUtilities\DataHandler.cs" />
+    <Compile Include="DataUtilities\dataUtils.cs" />
     <Compile Include="DWT\WaveletStudio\Blocks\AbsoluteValueBlock.cs" />
     <Compile Include="DWT\WaveletStudio\Blocks\BlockBase.cs" />
     <Compile Include="DWT\WaveletStudio\Blocks\BlockInOutSignalBridgeBase.cs" />
@@ -223,7 +223,7 @@
   <ItemGroup>
     <Compile Include="MyoArmband.cs" />
     <Compile Include="Quaternion.cs" />
-    <Compile Include="Plotter.cs" />
+    <Compile Include="DataUtilities\Plotter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
